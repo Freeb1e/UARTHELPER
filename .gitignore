@@ -1,0 +1,13 @@
+# 默认忽略所有内容
+*
+
+# 允许继续遍历子目录
+!*/
+
+# 只保留 Python 文件和 README
+!*.py
+!README
+!README.*
+
+# 保留 .gitignore 自身
+!.gitignore
