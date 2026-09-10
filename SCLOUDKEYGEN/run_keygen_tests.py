@@ -4,9 +4,12 @@
 from __future__ import annotations
 
 import argparse
+import math
 import re
+import subprocess
 import sys
 import time
+import tempfile
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Protocol, Sequence
@@ -16,6 +19,7 @@ SCRIPT_DIR = Path(__file__).resolve().parent
 PROJECT_ROOT = SCRIPT_DIR.parent.parent
 DEFAULT_VECTORS = (
     PROJECT_ROOT
+    / "third_party"
     / "Scloud+"
     / "Test_Vectors"
     / "KAT_KEM_Scloudplus-128-SM3-packed10.txt"
@@ -184,17 +188,45 @@ def receive_result(
     raise KeygenTestError(f"timed out after {timeout:g}s waiting for END")
 
 
+def derive_inputs(vectors: Sequence[KeygenVector]) -> list[bytes]:
+    reference = PROJECT_ROOT / "third_party/Scloud+/Implementations/_shared/api_pkc"
+    try:
+        with tempfile.TemporaryDirectory(prefix="scloud-drng-") as directory:
+            helper = Path(directory) / "derive_inputs"
+            subprocess.run(
+                ["cc", "-std=c11", "-O2", "-I", str(reference),
+                 str(SCRIPT_DIR / "derive_inputs.c"), str(reference / "drng.c"),
+                 "-o", str(helper)], check=True, capture_output=True,
+            )
+            result = subprocess.run(
+                [str(helper)], input=b"".join(vector.seed for vector in vectors),
+                check=True, capture_output=True,
+            ).stdout
+    except (OSError, subprocess.CalledProcessError) as error:
+        detail = error.stderr.decode(errors="replace") if isinstance(error, subprocess.CalledProcessError) else str(error)
+        raise KeygenTestError(f"host DRNG failed (requires a C compiler, cc): {detail}") from error
+    if len(result) != 128 * len(vectors):
+        raise KeygenTestError("host DRNG returned an invalid input length")
+    return [result[offset:offset + 128] for offset in range(0, len(result), 128)]
+
+
+def build_commands(parameter: int, vectors: Sequence[KeygenVector]) -> list[bytes]:
+    return [f"KEYGEN {parameter} {data.hex().upper()}\n".encode("ascii")
+            for data in derive_inputs(vectors)]
+
+
 def run_vectors(
     serial_port: SerialPort,
     parameter: int,
     vectors: Sequence[KeygenVector],
+    commands: Sequence[bytes],
     response_timeout: float,
+    cpu_mhz: float | None = None,
 ) -> None:
-    for index, vector in enumerate(vectors, start=1):
-        command = (
-            f"KEYGEN {parameter} {vector.seed.hex().upper()}\n".encode("ascii")
-        )
-        print(f"[{index}/{len(vectors)}] Count={vector.count} TX KEYGEN <Seed>")
+    if len(commands) != len(vectors):
+        raise KeygenTestError("command count does not match vector count")
+    for index, (vector, command) in enumerate(zip(vectors, commands), start=1):
+        print(f"[{index}/{len(vectors)}] Count={vector.count} TX KEYGEN <z||alpha>")
         written = serial_port.write(command)
         if written != len(command):
             raise KeygenTestError(
@@ -204,6 +236,7 @@ def run_vectors(
         public_key, secret_key, cycles = receive_result(
             serial_port, parameter, response_timeout
         )
+        print_cycle_report(cycles, cpu_mhz)
         if public_key != vector.public_key:
             raise KeygenTestError(f"Count {vector.count}: PK mismatch")
         if secret_key != vector.secret_key:
@@ -211,6 +244,18 @@ def run_vectors(
         total = cycles.get("CYCLES_ALGORITHM_TOTAL")
         suffix = f", cycles={total}" if total is not None else ""
         print(f"  PASS PK={len(public_key)} bytes SK={len(secret_key)} bytes{suffix}")
+
+
+def print_cycle_report(cycles: dict[str, int], cpu_mhz: float | None) -> None:
+    if not cycles:
+        return
+    heading = "  Stage                         cycles"
+    if cpu_mhz is not None:
+        heading += f"       ms (@ {cpu_mhz:g} MHz)"
+    print(heading)
+    for name, value in cycles.items():
+        suffix = f" {value / (cpu_mhz * 1000):14.6f}" if cpu_mhz is not None else ""
+        print(f"  {name.removeprefix('CYCLES_'):<25} {value:10d}{suffix}")
 
 
 def open_serial(port: str, baud_rate: int, response_timeout: float) -> SerialPort:
@@ -240,9 +285,14 @@ def parse_args(argv: Sequence[str] | None = None) -> argparse.Namespace:
     parser = argparse.ArgumentParser(
         description="Replay Scloud+ SM3 KeyGen KAT records on the board."
     )
-    parser.add_argument("--port", required=True, help="serial device, e.g. /dev/ttyUSB0")
+    parser.add_argument("--port", help="serial device, e.g. /dev/ttyUSB0")
+    parser.add_argument("--commands-out", type=Path, help="export UART commands; omit --port for host-only generation")
     parser.add_argument("--vectors", type=Path, default=DEFAULT_VECTORS)
     parser.add_argument("--baud-rate", type=int, default=115200)
+    parser.add_argument(
+        "--cpu-mhz", type=float,
+        help="actual board CPU frequency in MHz, used only to convert cycles to ms",
+    )
     parser.add_argument(
         "--timeout",
         type=float,
@@ -261,14 +311,29 @@ def parse_args(argv: Sequence[str] | None = None) -> argparse.Namespace:
 def main(argv: Sequence[str] | None = None) -> int:
     try:
         args = parse_args(argv)
+        if args.port is None and args.commands_out is None:
+            raise KeygenTestError("specify --port or --commands-out")
         if args.timeout <= 0 or args.startup_delay < 0:
             raise KeygenTestError("timeout must be positive and startup delay nonnegative")
+        if args.cpu_mhz is not None and (
+            not math.isfinite(args.cpu_mhz) or args.cpu_mhz <= 0
+        ):
+            raise KeygenTestError("cpu-mhz must be finite and positive")
         parameter, vectors = load_vectors(args.vectors)
+        commands = build_commands(parameter, vectors)
+        if args.commands_out is not None:
+            try:
+                args.commands_out.write_bytes(b"".join(commands))
+            except OSError as error:
+                raise KeygenTestError(f"cannot write commands: {error}") from error
+            print(f"Wrote {len(commands)} commands to {args.commands_out}")
+        if args.port is None:
+            return 0
         serial_port = open_serial(args.port, args.baud_rate, args.timeout)
         try:
             time.sleep(args.startup_delay)
             serial_port.reset_input_buffer()
-            run_vectors(serial_port, parameter, vectors, args.timeout)
+            run_vectors(serial_port, parameter, vectors, commands, args.timeout, args.cpu_mhz)
         finally:
             serial_port.close()
         print(f"PASS: all {len(vectors)} Scloud+{parameter}-SM3 KeyGen vectors matched")
