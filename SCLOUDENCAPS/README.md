@@ -1,9 +1,10 @@
 # Scloud+ Encaps board KATs
 
-The runner reads the merged repository's canonical 128/192/256-SM3 packed10
+The runner reads the merged repository's canonical 128/192/256/512-SM3 packed10
 KATs, invokes the official `api_pkc/drng.c` on the host, and sends PK and message
 m to the board. DRNG state follows the official KAT sequence: initialize Seed,
-draw 64-byte z, draw 64-byte alpha, then draw parameter/8-byte m. It compares
+draw z, draw alpha, then draw parameter/8-byte m. The first two draws are 64
+bytes for the lower sets and 128 bytes for parameter 512. It compares
 every returned CT and SS byte and stops at the first error or mismatch.
 
 Requires Python 3.10+, a host C compiler `cc`, and pyserial for board testing.
@@ -16,7 +17,7 @@ python3 -m pip install -r UARTHELPER/SCLOUDKEYGEN/requirements.txt
 Generate all command files without a board:
 
 ```sh
-for p in 128 192 256; do
+for p in 128 192 256 512; do
     python3 UARTHELPER/SCLOUDENCAPS/run_encaps_tests.py \
         --vectors "third_party/Scloud+/Test_Vectors/KAT_KEM_Scloudplus-${p}-SM3-packed10.txt" \
         --commands-out "UARTHELPER/SCLOUDENCAPS/encaps_commands_${p}.txt" || break
@@ -27,12 +28,14 @@ Each file contains 10 complete `ENCAPS <parameter> <pk_hex> <message_hex>`
 commands. These are deterministic test inputs, not TRNG output.
 
 Load the matching [board image](../../e203_hbirdv2/scripts/BOARDSW/scloud_encaps/README.md)
-before running each parameter. For example, after loading the 256 image:
+before running each lower parameter. Parameter 512 uses the separate
+`e203_hbirdv2/scripts/BOARDSW/scloud512_encaps` image. For example, after
+loading the 512 image:
 
 ```sh
 python3 -u UARTHELPER/SCLOUDENCAPS/run_encaps_tests.py \
     --port /dev/ttyUSB2 \
-    --vectors third_party/Scloud+/Test_Vectors/KAT_KEM_Scloudplus-256-SM3-packed10.txt
+    --vectors third_party/Scloud+/Test_Vectors/KAT_KEM_Scloudplus-512-SM3-packed10.txt
 ```
 
 Use the connected board's actual serial path. The link is 115200 8N1; response

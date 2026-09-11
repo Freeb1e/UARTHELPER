@@ -1,5 +1,19 @@
 # Change Log
 
+## 2026-09-10 - Parameter-512 host regression support
+
+- Extended all three Scloud UART runners to the canonical 512-SM3 KAT file.
+  KeyGen and Encaps now use 128-byte `z`/`alpha` DRNG draws; Decaps generates
+  the 64-byte fallback K output from two SM3 counter blocks.
+- Generated `keygen_commands_512.txt`, `encaps_commands_512.txt` and
+  `decaps_commands_512.txt` with 10, 10 and 11 requests respectively. Updated
+  the top-level ignore rules so required C adapters and these artifacts can be
+  versioned.
+- Host suites passed 10 KeyGen, 6 Encaps and 6 Decaps tests. The generated
+  commands then passed on `/dev/ttyUSB2`: 10/10 complete KeyGen PK/SK pairs,
+  10/10 complete Encaps CT/SS pairs, 10/10 valid Decaps SS values, and the
+  tampered Decaps implicit-rejection SS all matched.
+
 ## 2026-09-10 - Three-parameter board regression
 
 - Generated keygen_commands_128.txt, keygen_commands_192.txt and refreshed

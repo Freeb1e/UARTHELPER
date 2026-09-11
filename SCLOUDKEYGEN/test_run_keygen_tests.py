@@ -167,7 +167,7 @@ class ScloudKeygenTests(unittest.TestCase):
             run_vectors(serial_port, 128, [KeygenVector(0, SEED, PK, SK)], [COMMAND], 1.0)
 
     def test_official_drng_matches_all_supported_kat_random_inputs(self) -> None:
-        for parameter in (128, 192, 256):
+        for parameter in (128, 192, 256, 512):
             path = MODULE.DEFAULT_VECTORS.with_name(
                 f"KAT_KEM_Scloudplus-{parameter}-SM3-packed10.txt"
             )
@@ -178,9 +178,13 @@ class ScloudKeygenTests(unittest.TestCase):
                     fields = command.decode("ascii").split()
                     self.assertEqual(fields[:2], ["KEYGEN", str(parameter)])
                     inputs = bytes.fromhex(fields[2])
-                    self.assertEqual(len(inputs), 128)
-                    self.assertEqual(inputs[:64], vector.secret_key[-64:])
-                    seed_a = hashlib.new("sm3", b"F" + inputs[64:] + b"\0\0\0\1").digest()[:16]
+                    width = 256 if parameter == 512 else 128
+                    self.assertEqual(len(inputs), width)
+                    self.assertEqual(inputs[:width // 2],
+                                     vector.secret_key[-width // 2:])
+                    seed_a = hashlib.new(
+                        "sm3", b"F" + inputs[width // 2:] + b"\0\0\0\1"
+                    ).digest()[:16]
                     self.assertEqual(seed_a, vector.public_key[-16:])
 
     def test_export_commands_without_opening_serial(self) -> None:

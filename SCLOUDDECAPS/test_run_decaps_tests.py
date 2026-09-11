@@ -31,7 +31,7 @@ def response(mask=0):
 class DecapsTests(unittest.TestCase):
     def test_all_kats_and_tampered_command(self):
         root = Path(__file__).resolve().parents[2]
-        for p in (128, 192, 256):
+        for p in (128, 192, 256, 512):
             parameter, cases = runner.load_cases(root / f"third_party/Scloud+/Test_Vectors/KAT_KEM_Scloudplus-{p}-SM3-packed10.txt")
             self.assertEqual(parameter, p)
             self.assertEqual(len(cases), 11)

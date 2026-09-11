@@ -6,14 +6,16 @@ then flips bit 7 of the last CT byte of Count 0 and checks implicit rejection.
 Valid SS must match the complete KAT value and FAIL_MASK must be 0. The
 tampered SS must match K(z || modified_CT), and FAIL_MASK must be 255.
 
-The host uses Python hashlib's SM3 implementation for the one-block labeled
-K output (16/24/32 bytes), and reuses existing Scloud KAT/serial/report helpers.
+The host uses Python hashlib's SM3 implementation for the labeled K output.
+It generates one 32-byte counter block for parameters 128/192/256 and two
+blocks for the 64-byte parameter-512 shared secret. The runner reuses existing
+Scloud KAT/serial/report helpers.
 Requires Python 3.10+ with SM3 support and pyserial for board access.
 
-Generate all three command files from the repository root:
+Generate all four command files from the repository root:
 
 ```sh
-for p in 128 192 256; do
+for p in 128 192 256 512; do
     python3 UARTHELPER/SCLOUDDECAPS/run_decaps_tests.py \
         --vectors "third_party/Scloud+/Test_Vectors/KAT_KEM_Scloudplus-${p}-SM3-packed10.txt" \
         --commands-out "UARTHELPER/SCLOUDDECAPS/decaps_commands_${p}.txt" || break
@@ -23,13 +25,14 @@ done
 Each file contains 11 `DECAPS <parameter> <sk_hex> <ct_hex>` commands. The first
 10 are valid KATs; the last is the tampered Count 0 case. These are public KAT
 test keys. Load the matching [parameter image](../../e203_hbirdv2/scripts/BOARDSW/scloud_decaps/README.md)
-before running the test:
+before running a lower-parameter test. Parameter 512 uses
+`e203_hbirdv2/scripts/BOARDSW/scloud512_decaps`:
 
 ```sh
 python3 -m pip install -r UARTHELPER/SCLOUDKEYGEN/requirements.txt
 python3 -u UARTHELPER/SCLOUDDECAPS/run_decaps_tests.py \
     --port /dev/ttyUSB2 \
-    --vectors third_party/Scloud+/Test_Vectors/KAT_KEM_Scloudplus-256-SM3-packed10.txt
+    --vectors third_party/Scloud+/Test_Vectors/KAT_KEM_Scloudplus-512-SM3-packed10.txt
 ```
 
 Use the actual connected serial device. The link is 115200 8N1; timeout is

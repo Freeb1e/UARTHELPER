@@ -41,7 +41,12 @@ def load_kats(path: Path) -> tuple[int, list[Vector]]:
             raise KeygenTestError(f"duplicate KAT field {name}")
         fields[name] = value
     result = []
-    lengths = {128: (6096, 6160), 192: (11456, 12645), 256: (16296, 17925)}
+    lengths = {
+        128: (6096, 6160),
+        192: (11456, 12645),
+        256: (16296, 17925),
+        512: (48016, 48320),
+    }
     for key, record in zip(keys, records, strict=True):
         try:
             ct, ss = bytes.fromhex(record["CT"]), bytes.fromhex(record["SS"])

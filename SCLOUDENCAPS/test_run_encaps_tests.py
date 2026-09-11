@@ -28,7 +28,7 @@ def response(ct="aabb"):
 
 class EncapsTests(unittest.TestCase):
     def test_supported_kats_and_generated_commands(self):
-        for parameter in (128, 192, 256):
+        for parameter in (128, 192, 256, 512):
             path = runner.PROJECT_ROOT / f"third_party/Scloud+/Test_Vectors/KAT_KEM_Scloudplus-{parameter}-SM3-packed10.txt"
             actual, vectors = runner.load_kats(path)
             self.assertEqual(actual, parameter)

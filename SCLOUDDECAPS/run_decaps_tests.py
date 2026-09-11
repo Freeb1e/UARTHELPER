@@ -30,7 +30,7 @@ class Case:
 def load_cases(path: Path) -> tuple[int, list[Case]]:
     parameter, vectors = load_kats(path)
     _, keys = load_vectors(path)
-    expected_sk = {128: 7440, 192: 13872, 256: 19680}[parameter]
+    expected_sk = {128: 7440, 192: 13872, 256: 19680, 512: 57872}[parameter]
     cases = []
     for vector, key in zip(vectors, keys, strict=True):
         if len(key.secret_key) != expected_sk:
@@ -39,8 +39,12 @@ def load_cases(path: Path) -> tuple[int, list[Case]]:
     first = cases[0]
     modified = bytearray(first.ct)
     modified[-1] ^= 0x80
-    # Low SM3 parameters need at most one 32-byte block of K's labeled XOF.
-    fallback = hashlib.new("sm3", b"K" + first.sk[-64:] + modified + b"\0\0\0\1").digest()
+    z_bytes = 128 if parameter == 512 else 64
+    k_input = b"K" + first.sk[-z_bytes:] + modified
+    fallback = b"".join(
+        hashlib.new("sm3", k_input + counter.to_bytes(4, "big")).digest()
+        for counter in range(1, (parameter // 8 + 31) // 32 + 1)
+    )
     cases.append(Case(first.count, "tampered", first.sk, bytes(modified),
                       fallback[:parameter // 8], 255))
     return parameter, cases

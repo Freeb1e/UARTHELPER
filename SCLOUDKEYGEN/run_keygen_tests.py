@@ -24,7 +24,7 @@ DEFAULT_VECTORS = (
     / "Test_Vectors"
     / "KAT_KEM_Scloudplus-128-SM3-packed10.txt"
 )
-SUPPORTED_PARAMETERS = {128, 192, 256}
+SUPPORTED_PARAMETERS = {128, 192, 256, 512}
 KAT_NAME_PATTERN = re.compile(
     r"^KAT_KEM_Scloudplus-(?P<parameter>\d+)-(?P<family>[A-Z0-9]+)-packed10\.txt$"
 )
@@ -110,7 +110,7 @@ def load_vectors(path: Path) -> tuple[int, list[KeygenVector]]:
     family = match.group("family")
     if family != "SM3" or parameter not in SUPPORTED_PARAMETERS:
         raise KeygenTestError(
-            "board firmware supports only Scloudplus-128/192/256-SM3 vectors"
+            "board firmware supports only Scloudplus-128/192/256/512-SM3 vectors"
         )
 
     try:
@@ -188,8 +188,11 @@ def receive_result(
     raise KeygenTestError(f"timed out after {timeout:g}s waiting for END")
 
 
-def derive_inputs(vectors: Sequence[KeygenVector]) -> list[bytes]:
+def derive_inputs(
+    parameter: int, vectors: Sequence[KeygenVector]
+) -> list[bytes]:
     reference = PROJECT_ROOT / "third_party/Scloud+/Implementations/_shared/api_pkc"
+    input_bytes = 128 if parameter == 512 else 64
     try:
         with tempfile.TemporaryDirectory(prefix="scloud-drng-") as directory:
             helper = Path(directory) / "derive_inputs"
@@ -199,20 +202,23 @@ def derive_inputs(vectors: Sequence[KeygenVector]) -> list[bytes]:
                  "-o", str(helper)], check=True, capture_output=True,
             )
             result = subprocess.run(
-                [str(helper)], input=b"".join(vector.seed for vector in vectors),
+                [str(helper), str(input_bytes)],
+                input=b"".join(vector.seed for vector in vectors),
                 check=True, capture_output=True,
             ).stdout
     except (OSError, subprocess.CalledProcessError) as error:
         detail = error.stderr.decode(errors="replace") if isinstance(error, subprocess.CalledProcessError) else str(error)
         raise KeygenTestError(f"host DRNG failed (requires a C compiler, cc): {detail}") from error
-    if len(result) != 128 * len(vectors):
+    record_bytes = 2 * input_bytes
+    if len(result) != record_bytes * len(vectors):
         raise KeygenTestError("host DRNG returned an invalid input length")
-    return [result[offset:offset + 128] for offset in range(0, len(result), 128)]
+    return [result[offset:offset + record_bytes]
+            for offset in range(0, len(result), record_bytes)]
 
 
 def build_commands(parameter: int, vectors: Sequence[KeygenVector]) -> list[bytes]:
     return [f"KEYGEN {parameter} {data.hex().upper()}\n".encode("ascii")
-            for data in derive_inputs(vectors)]
+            for data in derive_inputs(parameter, vectors)]
 
 
 def run_vectors(

@@ -9,5 +9,14 @@
 !README
 !README.*
 
+# Scloud UART runners compile these official-DRNG adapters at runtime.
+!SCLOUDKEYGEN/derive_inputs.c
+!SCLOUDENCAPS/derive_message.c
+
+# Canonical Scloud+512 board commands are release test artifacts.
+!SCLOUDKEYGEN/keygen_commands_512.txt
+!SCLOUDENCAPS/encaps_commands_512.txt
+!SCLOUDDECAPS/decaps_commands_512.txt
+
 # 保留 .gitignore 自身
 !.gitignore

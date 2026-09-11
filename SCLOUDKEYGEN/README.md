@@ -7,15 +7,16 @@ for `END`, and compares the returned
 complete `PK` and `SK` values with that same record. A malformed response,
 board error, timeout, or first mismatch stops the run immediately.
 
-The current production board firmware supports the `128-SM3`, `192-SM3`, and
-`256-SM3` files in one image. The tool reads the parameter from the KAT
-filename and sends it with every request, so switching among these files does
-not require rebuilding or reloading the firmware.
+The production board firmware supports `128-SM3`, `192-SM3`, and `256-SM3` in
+one image. Parameter 512 uses the separate tiled
+`e203_hbirdv2/scripts/BOARDSW/scloud512_keygen` image. The tool reads the
+parameter from the KAT filename and uses the matching protocol automatically.
 
 The host requires `cc` (a C compiler). Each run builds a temporary helper using
 the merged repository's official `Implementations/_shared/api_pkc/drng.c`.
-It initializes DRNG separately for each seed, then draws 64 bytes for `z` and
-64 bytes for `alpha` in two calls. No DRNG implementation is duplicated in Python.
+It initializes DRNG separately for each seed, then draws `z` and `alpha` in
+two calls. Each draw is 64 bytes for parameters 128/192/256 and 128 bytes for
+parameter 512. No DRNG implementation is duplicated in Python.
 Use the version-3 board firmware; the previous Seed-only protocol is removed.
 
 From the merged repository root, install the serial dependency and run the default
@@ -39,6 +40,14 @@ Select another supported canonical file:
 python3 UARTHELPER/SCLOUDKEYGEN/run_keygen_tests.py \
     --port /dev/ttyUSB0 \
     --vectors third_party/Scloud+/Test_Vectors/KAT_KEM_Scloudplus-256-SM3-packed10.txt
+```
+
+After loading the 512 KeyGen image, run its canonical vectors with:
+
+```sh
+python3 UARTHELPER/SCLOUDKEYGEN/run_keygen_tests.py \
+    --port /dev/ttyUSB0 \
+    --vectors third_party/Scloud+/Test_Vectors/KAT_KEM_Scloudplus-512-SM3-packed10.txt
 ```
 
 The default vector path is resolved relative to the script location. An explicit
@@ -76,16 +85,18 @@ python3 UARTHELPER/SCLOUDKEYGEN/run_keygen_tests.py \
     --commands-out UARTHELPER/SCLOUDKEYGEN/keygen_commands_256.txt
 ```
 
-Each line contains the parameter and 128-byte `z || alpha` input. It can be sent
-directly from a serial terminal. Add `--port /dev/ttyUSB0` to the same command to
+Each line contains the parameter and `z || alpha`: 128 bytes total for the
+three lower sets and 256 bytes for parameter 512. It can be sent directly from
+a serial terminal. Add `--port /dev/ttyUSB0` to the same command to
 both export and run automatic full PK/SK comparisons. Command files are KAT test
 data; `z` and `alpha` are deterministic random inputs, not TRNG output.
 
-Prepared command files for all three supported SM3 parameter sets (10 records each):
+Prepared command files for all supported SM3 parameter sets (10 records each):
 
 - [128](keygen_commands_128.txt)
 - [192](keygen_commands_192.txt)
 - [256](keygen_commands_256.txt)
+- [512](keygen_commands_512.txt)
 
 Run all three sets sequentially on the same board image from the repository root:
 
