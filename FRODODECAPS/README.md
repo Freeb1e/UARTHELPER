@@ -40,6 +40,20 @@ are saved in that directory. Use `--line 1` to run just the first input and
 its reference. Use the same option with another line number to reproduce any
 individual case.
 
+`--compact` is accepted for consistency with KeyGen and Encaps:
+
+```sh
+.venv/bin/python -u UARTHELPER/FRODODECAPS/run_decaps_tests.py \
+    --parameter 640 --port /dev/ttyUSB2 --compact \
+    --results /tmp/frodo-decaps-640-compact
+```
+
+Decaps already returns only SS, FAIL_MASK and counters, so both modes send
+`DECAPS <parameter> 1 1 ...` and perform the same checks. The complete SK and CT
+must still be uploaded; this option does not materially reduce Decaps UART time.
+Results record compact mode and the checked SS/FAIL_MASK fields. See the shared
+[compact-mode details](../FRODO/README.md#compact-batch-verification).
+
 ## Manual UART Input
 
 After loading the matching firmware, extract the same line from the command

@@ -2,6 +2,18 @@
 
 ## 2026-09-13
 
+- Added optional --compact verification to the official KAT and independent
+  stage runners: PKH-only KeyGen, SS-only Encaps and SS/mask Decaps. Existing
+  firmware print flags suppress PK/CT output; canonical files stay complete.
+- Recorded mode and checked fields in reports and revalidated reused results
+  against the selected command and references. Compact results do not imply
+  full PK/CT comparison. Documented that Decaps still uploads full SK/CT.
+- Passed all 15 host tests, including both CLI paths, short fragmented UART
+  responses, wrong/missing compact outputs, full-file preservation and reuse
+  isolation. All 9 compact physical-board requests passed for official count=0
+  across 640/976/1344 and all stages, with no PK/CT fields returned. Evidence:
+  root evidence/frodo_compact_20260913. No firmware rebuild was required.
+
 - Added all-existing-vector execution and three independent stage packages:
   409 KeyGen, 461 Encaps and 418 Decaps requests across all parameters.
   Includes official SHAKE KATs and historical vectors with duplicate-source

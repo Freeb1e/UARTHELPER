@@ -21,8 +21,55 @@ are valid, so every Decaps failure-mask reference is 0.
 
 The stage entry points accept --parameter, --port, --results and optional
 --line for a single reproduction. They load the matching ELF through JTAG,
-then compare every reference field. Shared protocol logic and tests live here;
+then compare every reference field by default. Shared protocol logic and tests live here;
 the canonical UART inputs and references live in the three stage directories.
+
+## Compact Batch Verification
+
+Add `--compact` to any independent stage entry point or `run_kat_tests.py`
+to suppress large UART outputs. The default remains full verification.
+
+| Stage | Default comparisons | `--compact` comparisons | Suppressed UART output |
+| --- | --- | --- | --- |
+| KeyGen | Complete PK and PKH | PKH | PK |
+| Encaps | Complete CT and SS | SS | CT |
+| Decaps | Complete SS and FAIL_MASK | Complete SS and FAIL_MASK | None; already compact |
+
+For 100 Frodo-640 KeyGen cases:
+
+```sh
+.venv/bin/python -u UARTHELPER/FRODOKEYGEN/run_keygen_tests.py \
+    --parameter 640 --port /dev/ttyUSB2 --compact \
+    --results /tmp/frodo-keygen-640-compact
+```
+
+For all 900 official KAT requests:
+
+```sh
+.venv/bin/python -u UARTHELPER/FRODO/run_kat_tests.py \
+    --reference-root /home/tomoyo/PQCrypto-LWEKE-master \
+    --port /dev/ttyUSB2 --compact --results /tmp/frodo-kat-compact
+```
+
+`--line N` still selects one case in an independent stage. Result directories
+must be new. No firmware rebuild is required: KeyGen and Encaps already support
+the print flag being zero. The runner changes that flag only in memory; the
+canonical command/reference files retain full-output commands and references.
+Cycle counters, acknowledgements, lengths and Decaps failure masks remain checked.
+
+All inputs are still transmitted in full. In particular, Decaps still uploads
+the complete SK and CT, so this mode does not materially reduce its UART time.
+KeyGen PKH verification checks the public-key hash; compact Encaps checks the
+shared secret. Neither is reported as a complete PK/CT byte comparison. For a
+full reproduction, omit `--compact` and use the same input line.
+
+`summary.json` and each result record identify `verification_mode` as `full`
+or `compact`; records also list `verified_fields`. Reuse validates the actual
+command hash and the selected reference fields again. Compact KeyGen/Encaps
+results cannot be reused as full-output results because their commands differ.
+Decaps checks and commands are identical in both modes and can be revalidated
+for either mode. These options apply to the official and independent stage
+runners; the archived `run_board_tests.py test` smoke suite remains full-output.
 
 ## All Official KATs
 
@@ -56,8 +103,8 @@ progress and completion. Use --prepare-only to export/check inputs without
 opening hardware.
 
 For an interrupted run, --reuse-results PATH/TO/results.jsonl accepts only
-matching official KAT records with PASS status. It rechecks the complete
-output, command hash and current ELF hash; duplicates or mismatches fail.
+matching official KAT records with PASS status. It rechecks the selected
+reference fields, command hash and current ELF hash; duplicates or mismatches fail.
 Copied records retain the original evidence path and line. Unrelated historical
 records are not imported.
 

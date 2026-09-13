@@ -21,7 +21,7 @@ For each P in 640, 976, 1344:
 - `cases_P.jsonl`: 1-based line number, source file, original case index and
   valid label (all official KAT ciphertexts are valid). Case index 0 is distinct from command line 1.
 
-PK is the complete public key. PKH is its SHAKE hash. Both are checked.
+PK is the complete public key. PKH is its SHAKE hash. Both are checked by default.
 
 ## Independent Run
 
@@ -39,6 +39,20 @@ OpenOCD with `--openocd PATH`. The complete UART transcript and JSONL outcomes
 are saved in that directory. Use `--line 1` to run just the first input and
 its reference. Use the same option with another line number to reproduce any
 individual case.
+
+Add `--compact` to run the same batch with PKH-only verification:
+
+```sh
+.venv/bin/python -u UARTHELPER/FRODOKEYGEN/run_keygen_tests.py \
+    --parameter 640 --port /dev/ttyUSB2 --compact \
+    --results /tmp/frodo-keygen-640-compact
+```
+
+The runner sends `KEYGEN <parameter> 1 0 ...`, suppressing the complete PK
+on UART while retaining PKH and cycle counters. Input/reference files remain
+unchanged. Results identify compact mode and the checked PKH field; omit
+`--compact` for complete PK/PKH verification. See the shared
+[compact-mode details](../FRODO/README.md#compact-batch-verification).
 
 ## Manual UART Input
 
@@ -60,4 +74,4 @@ These are long ASCII commands/outputs; ensure a manual UART tool does not trunca
 
 Shared source import, coverage inventory and protocol logic are under
 [`../FRODO/`](../FRODO/README.md). The independent entry point reads the
-files in this directory directly and compares every listed reference field.
+files in this directory directly and compares every listed reference field by default.

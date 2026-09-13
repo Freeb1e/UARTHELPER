@@ -1,3 +1,5 @@
+import json
+from itertools import product
 from pathlib import Path
 import tempfile
 import unittest
@@ -8,17 +10,33 @@ import stage_runner
 
 class StageRunnerTests(unittest.TestCase):
     def test_single_line_selection_for_each_independent_stage(self):
-        for operation in ("keygen", "encaps", "decaps"):
-            with self.subTest(operation=operation), tempfile.TemporaryDirectory() as temporary:
+        for operation, compact in product(("keygen", "encaps", "decaps"), (False, True)):
+            with self.subTest(operation=operation, compact=compact), tempfile.TemporaryDirectory() as temporary:
                 directory = Path(temporary)
-                requests = [{"case": 10}, {"case": 20}]
+                expected = {"keygen": {"PK": "AB", "PKH": "CD"},
+                            "encaps": {"CT": "AB", "SS": "CD"},
+                            "decaps": {"SS": "CD", "FAIL_MASK": "0"}}[operation]
+                requests = [dict(case=case, operation=operation, expected=expected,
+                                 command=f"{operation.upper()} 640 1 1 {case}")
+                            for case in (10, 20)]
                 with patch.object(stage_runner, "read_stage_files", return_value=requests), \
                      patch.object(stage_runner, "execute") as execute:
                     status = stage_runner.main(operation, directory, [
                         "--parameter", "640", "--port", "mock",
-                        "--results", str(directory / "results"), "--line", "2"])
+                        "--results", str(directory / "results"), "--line", "2"] +
+                        (["--compact"] if compact else []))
                     self.assertEqual(status, 0)
-                    self.assertEqual(execute.call_args.args[1], [requests[1]])
+                    selected = execute.call_args.args[1]
+                    self.assertEqual(len(selected), 1)
+                    self.assertEqual(selected[0]["case"], 20)
+                    self.assertEqual(selected[0]["command"].split()[3],
+                                     "0" if compact and operation != "decaps" else "1")
+                    fields = ({"keygen": ["PKH"], "encaps": ["SS"],
+                               "decaps": ["SS", "FAIL_MASK"]}[operation]
+                              if compact else list(expected))
+                    self.assertEqual(selected[0]["verified_fields"], fields)
+                    summary = json.loads((directory / "results/summary.json").read_text())
+                    self.assertEqual(summary["verification_mode"], "compact" if compact else "full")
 
     def test_invalid_line_never_opens_board(self):
         with tempfile.TemporaryDirectory() as temporary:

@@ -228,6 +228,21 @@ def request_key(request):
             request["case"], request["kind"])
 
 
+def verification_requests(requests, compact):
+    selected = []
+    for request in requests:
+        fields = request["command"].split()
+        expected = dict(request["expected"])
+        if compact and request["operation"] in {"keygen", "encaps"}:
+            fields[3] = "0"
+            del expected["PK" if request["operation"] == "keygen" else "CT"]
+        selected.append(dict(
+            request, command=" ".join(fields), expected=expected,
+            verification_mode="compact" if compact else "full",
+            verified_fields=list(expected)))
+    return selected
+
+
 def verified_prior_results(path, requests):
     expected = {request_key(request): request for request in requests}
     reuse = {}
@@ -244,6 +259,8 @@ def verified_prior_results(path, requests):
                 request["operation"], request["parameter"])):
             raise ValueError("previous firmware differs from current firmware")
         compare_response(record["response"], request["expected"])
+        record.update(verification_mode=request["verification_mode"],
+                      verified_fields=request["verified_fields"])
         if key in reuse:
             raise ValueError("duplicate previously passed KAT result")
         record["reused_from"] = dict(path=str(path.resolve()), line=line_number)
@@ -325,19 +342,22 @@ def execute(args, requests, summary, reuse=None):
     save_json(args.results / "summary.json", summary)
 
 
-def main():
+def main(argv=None):
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--reference-root", type=Path, required=True)
     parser.add_argument("--results", type=Path, required=True)
     parser.add_argument("--port", default="/dev/ttyUSB2")
     parser.add_argument("--openocd", type=Path, default=DEFAULT_OPENOCD)
     parser.add_argument("--prepare-only", action="store_true")
+    parser.add_argument("--compact", action="store_true",
+                        help="verify PKH for KeyGen, SS for Encaps and SS/mask for Decaps; omit PK/CT output")
     parser.add_argument("--reuse-results", type=Path,
                         help="reuse only fully verified matching KAT outcomes")
-    args = parser.parse_args()
+    args = parser.parse_args(argv)
     args.results.mkdir(parents=True, exist_ok=False)
     summary = dict(status="RUNNING", started_at=datetime.now(timezone.utc).isoformat(),
-                   port=args.port, baud_rate=115200, passed=0, suite="official-shake-kat")
+                   port=args.port, baud_rate=115200, passed=0, suite="official-shake-kat",
+                   verification_mode="compact" if args.compact else "full")
     try:
         with tempfile.TemporaryDirectory(prefix="frodo-kat-") as build:
             requests, sources = inventory(args.reference_root, Path(build))
@@ -349,7 +369,9 @@ def main():
                     ROOT / "UARTHELPER" / f"FRODO{operation.upper()}", parameter, operation))
         if from_files != requests:
             raise ValueError("stage files do not match official KAT requests")
+        requests = verification_requests(from_files, args.compact)
         prepared = dict(source_sha256=sources, stage_files_sha256=artifacts,
+                        verification_mode=summary["verification_mode"],
                         total=len(requests), batches=dict(Counter(
                             f"{r['parameter']}_{r['operation']}" for r in requests)))
         save_json(args.results / "inventory.json", prepared)
@@ -362,7 +384,7 @@ def main():
             summary["status"] = "PREPARED"
             save_json(args.results / "summary.json", summary)
         else:
-            execute(args, from_files, summary, reuse)
+            execute(args, requests, summary, reuse)
     except KeyboardInterrupt:
         summary.update(status="INTERRUPTED")
         save_json(args.results / "summary.json", summary)
