@@ -1,41 +1,63 @@
-# Frodo Encaps UART tests
+# Frodo encaps independent board tests
 
-`run_encaps_tests.py` reads the non-empty, non-comment lines in
-`encaps_commands.txt`. It validates each command before opening the serial
-port, sends one command over a 115200 8N1 link, waits for that response's
-`END`, extracts `SS`, and only then sends the next command. A board `ERROR`
-response or timeout stops the test immediately.
+This directory contains only official KAT encaps inputs and references for
+FrodoKEM-SHAKE-640/976/1344. Files use ASCII, LF line endings, uppercase hex
+and no headers. Line N in every reference file corresponds exactly to line N
+of the command file. Line N is official count N-1 (counts 0..99).
+Historical and generated smoke cases are excluded. Keep the full command on one line.
 
-After all commands complete, the script writes one uppercase shared secret per
-line to `ss_board.txt` and compares that file byte for byte with the provided
-`ss.txt` reference. A mismatch prints a diff and exits with status 1.
+| Parameter | Commands |
+| --- | ---: |
+| 640 | 100 |
+| 976 | 100 |
+| 1344 | 100 |
 
-The commands below assume the current directory is `~/project`, which contains
-both `e203_hbirdv2` and `UARTHELPER`. Install the serial dependency with:
+## Files
 
-```sh
-python3 -m pip install -r UARTHELPER/FRODOENCAPS/requirements.txt
-```
+For each P in 640, 976, 1344:
 
-Run the tests against the board (replace the port if needed):
+- `encaps_commands_P.txt`: complete newline-terminated UART instructions.
+- `ct_ref_P.txt` and `ss_ref_P.txt`: one expected value per instruction.
+- `cases_P.jsonl`: 1-based line number, source file, original case index and
+  valid label (all official KAT ciphertexts are valid). Case index 0 is distinct from command line 1.
 
-```sh
-python3 UARTHELPER/FRODOENCAPS/run_encaps_tests.py --port /dev/ttyUSB0
-```
+CT includes the complete ciphertext and salt. Both CT and SS are checked.
 
-When the current directory is `~/project/e203_hbirdv2`, use:
+## Independent Run
 
-```sh
-python3 -m pip install -r ../UARTHELPER/FRODOENCAPS/requirements.txt
-python3 ../UARTHELPER/FRODOENCAPS/run_encaps_tests.py --port /dev/ttyUSB0
-```
-
-Useful options are `--baud-rate`, `--timeout`, `--startup-delay`, `--commands`,
-`--reference`, and `--output`. Paths for the three files default to the
-`FRODOENCAPS` directory, so the command may be run from any working directory.
-
-Run the protocol tests without a board:
+Run from the merged repository root; the board must have the accelerator
+bitstream loaded and the matching ELF built:
 
 ```sh
-python3 -m unittest discover -s UARTHELPER/FRODOENCAPS -p 'test_*.py'
+.venv/bin/python -u UARTHELPER/FRODOENCAPS/run_encaps_tests.py \
+    --parameter 640 --port /dev/ttyUSB2 --results /tmp/frodo-encaps-640
 ```
+
+The script loads and verifies the CPU image through JTAG before sending this
+stage's commands. Results must use a new directory. Override the installed
+OpenOCD with `--openocd PATH`. The complete UART transcript and JSONL outcomes
+are saved in that directory. Use `--line 1` to run just the first input and
+its reference. Use the same option with another line number to reproduce any
+individual case.
+
+## Manual UART Input
+
+After loading the matching firmware, extract the same line from the command
+and reference files. For example, from the repository root:
+
+```sh
+sed -n '1p' UARTHELPER/FRODOENCAPS/encaps_commands_640.txt
+sed -n '1p' UARTHELPER/FRODOENCAPS/ct_ref_640.txt
+sed -n '1p' UARTHELPER/FRODOENCAPS/ss_ref_640.txt
+sed -n '1p' UARTHELPER/FRODOENCAPS/cases_640.jsonl
+```
+
+Send the command at 115200 8N1 with a final newline. Wait for `END` before
+sending the next line. These commands request cycle counters and the full
+algorithm output. Compare hex values case-insensitively.
+
+These are long ASCII commands/outputs; ensure a manual UART tool does not truncate them.
+
+Shared source import, coverage inventory and protocol logic are under
+[`../FRODO/`](../FRODO/README.md). The independent entry point reads the
+files in this directory directly and compares every listed reference field.

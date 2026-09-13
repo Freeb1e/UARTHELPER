@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Independent Frodo encaps test entry point."""
+"""Independent Frodo Decaps test entry point."""
 
 from pathlib import Path
 import sys
@@ -9,4 +9,4 @@ sys.path.insert(0, str(DIRECTORY.parent / "FRODO"))
 from stage_runner import main
 
 if __name__ == "__main__":
-    sys.exit(main("encaps", DIRECTORY))
+    sys.exit(main("decaps", DIRECTORY))

@@ -20,3 +20,23 @@
 
 # 保留 .gitignore 自身
 !.gitignore
+
+# Complete Frodo board input/reference packages.
+!FRODO/requirements.txt
+!FRODO/CHAGELOG.md
+!FRODO/vectors/*.json
+!FRODOKEYGEN/*_commands_*.txt
+!FRODOKEYGEN/*_ref_*.txt
+!FRODOKEYGEN/cases_*.jsonl
+!FRODOKEYGEN/CHAGELOG.md
+!FRODOKEYGEN/requirements.txt
+!FRODOENCAPS/*_commands_*.txt
+!FRODOENCAPS/*_ref_*.txt
+!FRODOENCAPS/cases_*.jsonl
+!FRODOENCAPS/CHAGELOG.md
+!FRODOENCAPS/requirements.txt
+!FRODODECAPS/*_commands_*.txt
+!FRODODECAPS/*_ref_*.txt
+!FRODODECAPS/cases_*.jsonl
+!FRODODECAPS/requirements.txt
+!FRODODECAPS/CHAGELOG.md

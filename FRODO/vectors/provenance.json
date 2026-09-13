@@ -1,0 +1,10 @@
+{
+  "reference_root": "/home/tomoyo/PQCrypto-LWEKE-master",
+  "source_sha256": {
+    "generate_hw_test_vectors.py": "32e00a03f77c04548e4a6b6716e95ab841afae33ce78e5680afa4d4856ef589a",
+    "frodokem.py": "61f38e04fa99605489f596f6c62275fc7e7d03052d0dd507cacdb606ef69a15e"
+  },
+  "master_seed": "000102030405060708090A0B0C0D0E0F101112131415161718191A1B1C1D1E1F",
+  "count": 3,
+  "generated_at": "2026-09-13T02:58:58.614817+00:00"
+}
