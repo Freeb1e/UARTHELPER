@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import importlib.util
 import io
+import csv
 import sys
 import tempfile
 import unittest
@@ -93,6 +94,15 @@ class MldsaSignTests(unittest.TestCase):
         self.assertNotEqual(first[0], first[1])
         self.assertEqual(first[2], MODULE.generate_benchmark_inputs(65, 1, 2)[0])
 
+    def test_generated_benchmark_inputs_replace_skipped_case(self) -> None:
+        expected = MODULE.generate_benchmark_inputs(87, 4)
+        replaced = MODULE.generate_benchmark_inputs(87, 3, skipped_cases=[1])
+        self.assertEqual(replaced, [expected[0], expected[2], expected[3]])
+
+    def test_generated_benchmark_inputs_reject_duplicate_skip(self) -> None:
+        with self.assertRaisesRegex(SignTestError, "must be unique"):
+            MODULE.generate_benchmark_inputs(87, 3, skipped_cases=[1, 1])
+
     def test_software_reference_has_expected_sizes(self) -> None:
         source = SignInput(bytes(range(32)), bytes(range(32, 64)), bytes(32))
         for parameter in MODULE.SUPPORTED_PARAMETERS:
@@ -108,6 +118,7 @@ class MldsaSignTests(unittest.TestCase):
     def test_receive_result_parses_signature_and_metrics(self) -> None:
         serial_port = FakeSerial([
             b"OK PARA=44\r\n", b"SIG=0102\r\n",
+            b"IMPLEMENTATION=hardware\r\n",
             b"CYCLES_ALGORITHM_TOTAL=1234\r\n", b"HASH_JOBS=10\r\n",
             b"END\r\n",
         ])
@@ -121,11 +132,12 @@ class MldsaSignTests(unittest.TestCase):
         vector = SignVector(source, b"\x01\x02", signature)
         serial_port = FakeSerial([
             b"OK PARA=44\n", f"SIG={signature.hex()}\n".encode("ascii"),
+            b"IMPLEMENTATION=hardware\n",
             b"CYCLES_ALGORITHM_TOTAL=100000\n", *PROFILE_LINES, b"END\n",
         ])
         output = io.StringIO()
         with redirect_stdout(output):
-            MODULE.run_vectors(serial_port, 44, [vector], 1.0, 100.0)
+            MODULE.run_vectors(serial_port, 44, [vector], 1.0, "hardware", 100.0)
         expected = (
             f"SIGN 44 0102 {source.message.hex().upper()} "
             f"{source.sign_random.hex().upper()}\n"
@@ -160,10 +172,41 @@ class MldsaSignTests(unittest.TestCase):
         actual = b"\xff" + expected[1:]
         vector = SignVector(source, b"\x01", expected)
         serial_port = FakeSerial([
-            b"OK PARA=44\n", f"SIG={actual.hex()}\n".encode("ascii"), b"END\n",
+            b"OK PARA=44\n", b"IMPLEMENTATION=hardware\n",
+            f"SIG={actual.hex()}\n".encode("ascii"), b"END\n",
         ])
         with self.assertRaisesRegex(SignTestError, "mismatch at byte 0"):
             MODULE.run_vectors(serial_port, 44, [vector], 1.0)
+
+    def test_run_vectors_rejects_wrong_board_implementation(self) -> None:
+        source = SignInput(bytes(32), bytes(32), bytes(32))
+        signature = bytes(MODULE.SIGNATURE_BYTES[44])
+        vector = SignVector(source, b"\x01", signature)
+        serial_port = FakeSerial([
+            b"OK PARA=44\n", b"IMPLEMENTATION=software\n",
+            f"SIG={signature.hex()}\n".encode("ascii"), b"END\n",
+        ])
+        with self.assertRaisesRegex(SignTestError, "expected hardware"):
+            MODULE.run_vectors(serial_port, 44, [vector], 1.0)
+
+    def test_write_measurements_records_reproducible_inputs(self) -> None:
+        source = SignInput(bytes(range(32)), bytes([0xA5]) * 32, bytes(32))
+        vector = SignVector(source, bytes(2), bytes([0x5A]) * 8)
+        measurement = MODULE.SignMeasurement(
+            algorithm_cycles=1000, attempts=2, attempt_cycles=700,
+            success_cycles=300, reject_z=1, reject_z_cycles=400,
+            reject_w0=0, reject_w0_cycles=0, reject_h=0,
+            reject_h_cycles=0, reject_omega=0, reject_omega_cycles=0,
+        )
+        with tempfile.TemporaryDirectory() as directory:
+            path = Path(directory) / "measurements.csv"
+            MODULE.write_measurements(path, 44, "hardware", [vector], [measurement])
+            with path.open(newline="", encoding="ascii") as source_file:
+                rows = list(csv.DictReader(source_file))
+        self.assertEqual(len(rows), 1)
+        self.assertEqual(rows[0]["implementation"], "hardware")
+        self.assertEqual(rows[0]["keygen_seed"], source.keygen_seed.hex())
+        self.assertEqual(rows[0]["algorithm_cycles"], "1000")
 
 
 if __name__ == "__main__":

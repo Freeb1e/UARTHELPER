@@ -2,6 +2,7 @@
 from __future__ import annotations
 
 import argparse
+import csv
 import hashlib
 import math
 import subprocess
@@ -20,6 +21,7 @@ SECRET_KEY_BYTES = {44: 2560, 65: 4032, 87: 4896}
 SIGNATURE_BYTES = {44: 2420, 65: 3309, 87: 4627}
 INPUT_BYTES = 32
 THEORETICAL_ATTEMPTS = {44: 4.25, 65: 5.10, 87: 3.85}
+IMPLEMENTATIONS = ("hardware", "software")
 
 
 class SignTestError(RuntimeError):
@@ -128,23 +130,32 @@ def load_inputs(path: Path, parameter: int) -> list[SignInput]:
 
 
 def generate_benchmark_inputs(
-    parameter: int, count: int, start: int = 0
+    parameter: int, count: int, start: int = 0,
+    skipped_cases: Sequence[int] = (),
 ) -> list[SignInput]:
     if count <= 0 or start < 0:
         raise SignTestError("benchmark count must be positive and start nonnegative")
+    if any(case < start for case in skipped_cases):
+        raise SignTestError("benchmark skip indexes must not precede start")
+    skipped = set(skipped_cases)
+    if len(skipped) != len(skipped_cases):
+        raise SignTestError("benchmark skip indexes must be unique")
 
     def derive(case: int, field: str) -> bytes:
         domain = f"MLDSA-{parameter}-SIGN-{case}-{field}".encode("ascii")
         return hashlib.shake_256(domain).digest(INPUT_BYTES)
 
-    return [
-        SignInput(
-            derive(case, "KEYGEN"),
-            derive(case, "MESSAGE"),
-            derive(case, "RANDOM"),
-        )
-        for case in range(start, start + count)
-    ]
+    inputs: list[SignInput] = []
+    case = start
+    while len(inputs) < count:
+        if case not in skipped:
+            inputs.append(SignInput(
+                derive(case, "KEYGEN"),
+                derive(case, "MESSAGE"),
+                derive(case, "RANDOM"),
+            ))
+        case += 1
+    return inputs
 
 
 def build_golden(parameter: int, inputs: Sequence[SignInput]) -> list[SignVector]:
@@ -220,7 +231,7 @@ def receive_result(
             signature = parse_hex(line[4:], "board signature")
         elif "=" in line:
             name, value = line.split("=", 1)
-            if name.startswith(
+            if name == "IMPLEMENTATION" or name.startswith(
                 ("CYCLES_", "POLY_", "SAMPLER_", "HASH_", "SIGN_")
             ):
                 if name in metrics:
@@ -315,6 +326,7 @@ def run_vectors(
     parameter: int,
     vectors: Sequence[SignVector],
     response_timeout: float,
+    implementation: str = "hardware",
     cpu_mhz: float | None = None,
 ) -> list[SignMeasurement]:
     measurements: list[SignMeasurement] = []
@@ -329,6 +341,12 @@ def run_vectors(
             raise SignTestError("UART short write")
         serial_port.flush()
         signature, metrics = receive_result(serial_port, parameter, response_timeout)
+        board_implementation = metrics.get("IMPLEMENTATION")
+        if board_implementation != implementation:
+            raise SignTestError(
+                f"case {index}: loaded board implementation is "
+                f"{board_implementation or 'unknown'}, expected {implementation}"
+            )
         if len(signature) != SIGNATURE_BYTES[parameter]:
             raise SignTestError(
                 f"case {index}: signature has {len(signature)} bytes, "
@@ -377,6 +395,72 @@ def run_vectors(
     return measurements
 
 
+def write_measurements(
+    path: Path,
+    parameter: int,
+    implementation: str,
+    vectors: Sequence[SignVector],
+    measurements: Sequence[SignMeasurement],
+) -> None:
+    if len(vectors) != len(measurements):
+        raise SignTestError("cannot save incomplete Sign measurements")
+    fieldnames = [
+        "format_version", "parameter", "implementation", "case_number",
+        "input_id", "keygen_seed", "message", "sign_random",
+        "signature_sha256", "algorithm_cycles", "attempts",
+        "attempt_cycles", "success_cycles", "reject_z", "reject_z_cycles",
+        "reject_w0", "reject_w0_cycles", "reject_h", "reject_h_cycles",
+        "reject_omega", "reject_omega_cycles",
+    ]
+    path.parent.mkdir(parents=True, exist_ok=True)
+    temporary: Path | None = None
+    try:
+        with tempfile.NamedTemporaryFile(
+            mode="w", encoding="ascii", newline="", dir=path.parent,
+            prefix=f".{path.name}.", delete=False,
+        ) as output:
+            temporary = Path(output.name)
+            writer = csv.DictWriter(output, fieldnames=fieldnames)
+            writer.writeheader()
+            for case_number, (vector, measurement) in enumerate(
+                zip(vectors, measurements), start=1
+            ):
+                source = vector.source
+                input_material = (
+                    parameter.to_bytes(2, "big") + source.keygen_seed +
+                    source.message + source.sign_random
+                )
+                writer.writerow({
+                    "format_version": 1,
+                    "parameter": parameter,
+                    "implementation": implementation,
+                    "case_number": case_number,
+                    "input_id": hashlib.sha256(input_material).hexdigest(),
+                    "keygen_seed": source.keygen_seed.hex(),
+                    "message": source.message.hex(),
+                    "sign_random": source.sign_random.hex(),
+                    "signature_sha256": hashlib.sha256(vector.signature).hexdigest(),
+                    "algorithm_cycles": measurement.algorithm_cycles,
+                    "attempts": measurement.attempts,
+                    "attempt_cycles": measurement.attempt_cycles,
+                    "success_cycles": measurement.success_cycles,
+                    "reject_z": measurement.reject_z,
+                    "reject_z_cycles": measurement.reject_z_cycles,
+                    "reject_w0": measurement.reject_w0,
+                    "reject_w0_cycles": measurement.reject_w0_cycles,
+                    "reject_h": measurement.reject_h,
+                    "reject_h_cycles": measurement.reject_h_cycles,
+                    "reject_omega": measurement.reject_omega,
+                    "reject_omega_cycles": measurement.reject_omega_cycles,
+                })
+        temporary.replace(path)
+    except OSError as error:
+        if temporary is not None:
+            temporary.unlink(missing_ok=True)
+        raise SignTestError(f"cannot write measurements {path}: {error}") from error
+    print(f"Wrote {len(measurements)} paired-input measurement row(s) to {path}")
+
+
 def open_serial(port: str, baud_rate: int, response_timeout: float) -> SerialPort:
     try:
         import serial
@@ -403,6 +487,10 @@ def parse_args(argv: Sequence[str] | None = None) -> argparse.Namespace:
         "--parameter", type=int, choices=sorted(SUPPORTED_PARAMETERS), default=44
     )
     parser.add_argument("--port", help="serial device, e.g. /dev/ttyUSB2")
+    parser.add_argument(
+        "--implementation", choices=IMPLEMENTATIONS, default="hardware",
+        help="implementation expected in the loaded board image",
+    )
     parser.add_argument("--commands", type=Path)
     parser.add_argument(
         "--benchmark-cases", type=int,
@@ -412,10 +500,18 @@ def parse_args(argv: Sequence[str] | None = None) -> argparse.Namespace:
         "--benchmark-start", type=int, default=0,
         help="zero-based generated case index used with --benchmark-cases",
     )
+    parser.add_argument(
+        "--benchmark-skip", action="append", type=int, default=[],
+        help="zero-based generated case index to exclude; may be repeated",
+    )
     parser.add_argument("--baud-rate", type=int, default=115200)
     parser.add_argument("--cpu-mhz", type=float)
     parser.add_argument("--timeout", type=float, default=300.0)
     parser.add_argument("--startup-delay", type=float, default=1.0)
+    parser.add_argument(
+        "--measurements-out", type=Path,
+        help="write successful per-case measurements to CSV",
+    )
     parser.add_argument(
         "--golden-only", action="store_true",
         help="build host golden outputs and stop before opening UART",
@@ -434,11 +530,16 @@ def main(argv: Sequence[str] | None = None) -> int:
             raise SignTestError("cpu-mhz must be finite and positive")
         if args.commands is not None and args.benchmark_cases is not None:
             raise SignTestError("--commands and --benchmark-cases cannot be used together")
-        if args.benchmark_cases is None and args.benchmark_start != 0:
-            raise SignTestError("--benchmark-start requires --benchmark-cases")
+        if args.benchmark_cases is None and (
+            args.benchmark_start != 0 or args.benchmark_skip
+        ):
+            raise SignTestError(
+                "--benchmark-start and --benchmark-skip require --benchmark-cases"
+            )
         if args.benchmark_cases is not None:
             inputs = generate_benchmark_inputs(
-                args.parameter, args.benchmark_cases, args.benchmark_start
+                args.parameter, args.benchmark_cases, args.benchmark_start,
+                args.benchmark_skip,
             )
         else:
             command_path = (
@@ -455,10 +556,21 @@ def main(argv: Sequence[str] | None = None) -> int:
         try:
             time.sleep(args.startup_delay)
             serial_port.reset_input_buffer()
-            run_vectors(serial_port, args.parameter, vectors, args.timeout, args.cpu_mhz)
+            measurements = run_vectors(
+                serial_port, args.parameter, vectors, args.timeout,
+                args.implementation, args.cpu_mhz,
+            )
         finally:
             serial_port.close()
-        print(f"PASS: all ML-DSA-{args.parameter} Sign cases matched")
+        if args.measurements_out is not None:
+            write_measurements(
+                args.measurements_out, args.parameter, args.implementation,
+                vectors, measurements,
+            )
+        print(
+            f"PASS: all ML-DSA-{args.parameter} Sign {args.implementation} "
+            "cases matched"
+        )
         return 0
     except SignTestError as error:
         print(f"ERROR: {error}", file=sys.stderr)
