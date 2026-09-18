@@ -40,6 +40,16 @@ are saved in that directory. Use `--line 1` to run just the first input and
 its reference. Use the same option with another line number to reproduce any
 individual case.
 
+For the parameter-specific optimized HWDISPLAY images, build the matching
+`e203_hbirdv2/scripts/HWDISPLAY/frodo_keygen/frodo_keygen_P.elf` first, then
+pass `--firmware-tree HWDISPLAY`. The default is BOARDSW. For example:
+
+```sh
+.venv/bin/python -u UARTHELPER/FRODOKEYGEN/run_keygen_tests.py \
+    --parameter 640 --port /dev/ttyUSB2 --line 1 \
+    --firmware-tree HWDISPLAY --results /tmp/hwdisplay-frodo-keygen-640
+```
+
 Add `--compact` to run the same batch with PKH-only verification:
 
 ```sh

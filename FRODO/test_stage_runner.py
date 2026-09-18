@@ -37,6 +37,22 @@ class StageRunnerTests(unittest.TestCase):
                     self.assertEqual(selected[0]["verified_fields"], fields)
                     summary = json.loads((directory / "results/summary.json").read_text())
                     self.assertEqual(summary["verification_mode"], "compact" if compact else "full")
+                    self.assertEqual(execute.call_args.args[0].firmware_tree, "BOARDSW")
+
+    def test_hwdisplay_firmware_selection(self):
+        with tempfile.TemporaryDirectory() as temporary:
+            directory = Path(temporary)
+            with patch.object(stage_runner, "read_stage_files", return_value=[
+                    dict(case=0, operation="keygen", expected={"PKH": "AB"},
+                         command="KEYGEN 640 1 1 AB")]), \
+                 patch.object(stage_runner, "execute") as execute:
+                status = stage_runner.main("keygen", directory, [
+                    "--parameter", "640", "--port", "mock", "--firmware-tree",
+                    "HWDISPLAY", "--results", str(directory / "results")])
+                self.assertEqual(status, 0)
+                self.assertEqual(execute.call_args.args[0].firmware_tree, "HWDISPLAY")
+                summary = json.loads((directory / "results/summary.json").read_text())
+                self.assertEqual(summary["firmware_tree"], "HWDISPLAY")
 
     def test_invalid_line_never_opens_board(self):
         with tempfile.TemporaryDirectory() as temporary:

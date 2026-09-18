@@ -184,14 +184,17 @@ def compare_response(fields, expected):
     return cycles
 
 
-def firmware_path(operation, parameter):
+def firmware_path(operation, parameter, firmware_tree="BOARDSW"):
     name = f"frodo_{operation}"
-    target = name + (f"_{parameter}" if operation == "decaps" else "")
-    return ROOT / "e203_hbirdv2/scripts/BOARDSW" / name / f"{target}.elf"
+    target = name + (f"_{parameter}" if firmware_tree == "HWDISPLAY" or
+                     operation == "decaps" else "")
+    return ROOT / "e203_hbirdv2/scripts" / firmware_tree / name / f"{target}.elf"
 
 
 def upload(args, operation, parameter, transcript):
-    firmware = firmware_path(operation, parameter)
+    firmware = firmware_path(operation, parameter, args.firmware_tree)
+    if not firmware.is_file():
+        raise ValueError(f"firmware not found: {firmware}")
     config = ROOT / "e203_hbirdv2/scripts/BOARDSW/scloud_encaps/openocd_ilm.cfg"
     command = [str(args.openocd), "-f", str(config),
                "-c", "reset halt", "-c", f"load_image {firmware}",
@@ -218,7 +221,8 @@ def test_board(args):
             batches.append((parameter, operation, build_requests(manifest, operation)))
     args.results.mkdir(parents=True, exist_ok=False)
     report = dict(started_at=datetime.now(timezone.utc).isoformat(), port=args.port,
-                  baud_rate=args.baud_rate, vectors=str(args.vectors.resolve()), results=[])
+                  baud_rate=args.baud_rate, firmware_tree=args.firmware_tree,
+                  vectors=str(args.vectors.resolve()), results=[])
     report_path = args.results / "results.json"
     save_json(report_path, report)
     with serial.Serial(args.port, args.baud_rate, timeout=0.1,
@@ -275,6 +279,8 @@ def main():
     run.add_argument("--baud-rate", type=int, default=115200)
     run.add_argument("--timeout", type=float, default=120)
     run.add_argument("--openocd", type=Path, default=DEFAULT_OPENOCD)
+    run.add_argument("--firmware-tree", choices=("BOARDSW", "HWDISPLAY"),
+                     default="BOARDSW")
     run.add_argument("--results", type=Path, required=True)
     run.add_argument("--operations", nargs="+", choices=OPERATIONS, default=OPERATIONS)
     for command in (gen, run):

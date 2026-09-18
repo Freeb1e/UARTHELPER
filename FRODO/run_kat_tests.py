@@ -243,7 +243,7 @@ def verification_requests(requests, compact):
     return selected
 
 
-def verified_prior_results(path, requests):
+def verified_prior_results(path, requests, firmware_tree="BOARDSW"):
     expected = {request_key(request): request for request in requests}
     reuse = {}
     for line_number, line in enumerate(path.read_text().splitlines(), 1):
@@ -256,7 +256,7 @@ def verified_prior_results(path, requests):
         if record["command_sha256"] != hashlib.sha256(payload).hexdigest():
             raise ValueError("previous command does not match current KAT")
         if record["firmware_sha256"] != digest(firmware_path(
-                request["operation"], request["parameter"])):
+                request["operation"], request["parameter"], firmware_tree)):
             raise ValueError("previous firmware differs from current firmware")
         compare_response(record["response"], request["expected"])
         record.update(verification_mode=request["verification_mode"],
@@ -348,6 +348,8 @@ def main(argv=None):
     parser.add_argument("--results", type=Path, required=True)
     parser.add_argument("--port", default="/dev/ttyUSB2")
     parser.add_argument("--openocd", type=Path, default=DEFAULT_OPENOCD)
+    parser.add_argument("--firmware-tree", choices=("BOARDSW", "HWDISPLAY"),
+                        default="BOARDSW")
     parser.add_argument("--prepare-only", action="store_true")
     parser.add_argument("--compact", action="store_true",
                         help="verify PKH for KeyGen, SS for Encaps and SS/mask for Decaps; omit PK/CT output")
@@ -357,6 +359,7 @@ def main(argv=None):
     args.results.mkdir(parents=True, exist_ok=False)
     summary = dict(status="RUNNING", started_at=datetime.now(timezone.utc).isoformat(),
                    port=args.port, baud_rate=115200, passed=0, suite="official-shake-kat",
+                   firmware_tree=args.firmware_tree,
                    verification_mode="compact" if args.compact else "full")
     try:
         with tempfile.TemporaryDirectory(prefix="frodo-kat-") as build:
@@ -375,7 +378,7 @@ def main(argv=None):
                         total=len(requests), batches=dict(Counter(
                             f"{r['parameter']}_{r['operation']}" for r in requests)))
         save_json(args.results / "inventory.json", prepared)
-        reuse = verified_prior_results(args.reuse_results, requests) if args.reuse_results else {}
+        reuse = verified_prior_results(args.reuse_results, requests, args.firmware_tree) if args.reuse_results else {}
         summary.update(total=len(requests), reused=len(reuse))
         save_json(args.results / "summary.json", summary)
         print(f"Prepared {len(requests)} official KAT requests; "

@@ -1,5 +1,23 @@
 # Change Log
 
+## 2026-09-18
+
+- Added explicit `--firmware-tree HWDISPLAY` selection for Frodo board, KAT,
+  and independent stage runners; parameter-specific KeyGen/Encaps images are
+  selected and missing images fail before JTAG access. BOARDSW stays the default.
+- Passed all 17 host tests and official SHAKE KAT count=0 on the physical board
+  for optimized HWDISPLAY Frodo KeyGen 640/976/1344, checking complete PK/PKH
+  and recording all seven stage counters. Evidence is in root
+  `evidence/hwdisplay-frodo-keygen-{640,976,1344}-20260918/`.
+- Passed official SHAKE KAT count=0 on the physical board for optimized
+  HWDISPLAY Frodo Encaps 640/976/1344, checking complete CT/SS and recording
+  all fourteen stage counters. Evidence is in root
+  `evidence/hwdisplay-frodo-encaps-{640,976,1344}-20260918/`.
+- Passed official SHAKE KAT count=0 on the physical board for optimized
+  HWDISPLAY Frodo Decaps 640/976/1344, comparing full SS and `FAIL_MASK=0`
+  and recording four stage counters. Evidence is in root
+  `evidence/hwdisplay-frodo-decaps-{640,976,1344}-20260918/`.
+
 ## 2026-09-13
 
 - Added optional --compact verification to the official KAT and independent

@@ -40,6 +40,16 @@ are saved in that directory. Use `--line 1` to run just the first input and
 its reference. Use the same option with another line number to reproduce any
 individual case.
 
+To test the optimized HWDISPLAY images, build the matching
+`e203_hbirdv2/scripts/HWDISPLAY/frodo_decaps/frodo_decaps_P.elf` and pass
+`--firmware-tree HWDISPLAY` (the default is BOARDSW). For example:
+
+```sh
+.venv/bin/python -u UARTHELPER/FRODODECAPS/run_decaps_tests.py \
+    --parameter 640 --port /dev/ttyUSB2 --line 1 \
+    --firmware-tree HWDISPLAY --results /tmp/hwdisplay-frodo-decaps-640
+```
+
 `--compact` is accepted for consistency with KeyGen and Encaps:
 
 ```sh

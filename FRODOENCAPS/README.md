@@ -40,6 +40,16 @@ are saved in that directory. Use `--line 1` to run just the first input and
 its reference. Use the same option with another line number to reproduce any
 individual case.
 
+To test a parameter-specific optimized HWDISPLAY image instead of the default
+BOARDSW image, build `e203_hbirdv2/scripts/HWDISPLAY/frodo_encaps/frodo_encaps_P.elf`
+and pass `--firmware-tree HWDISPLAY`. For example:
+
+```sh
+.venv/bin/python -u UARTHELPER/FRODOENCAPS/run_encaps_tests.py \
+    --parameter 640 --port /dev/ttyUSB2 --line 1 \
+    --firmware-tree HWDISPLAY --results /tmp/hwdisplay-frodo-encaps-640
+```
+
 Add `--compact` for SS-only verification without transmitting the output CT:
 
 ```sh
