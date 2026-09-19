@@ -17,11 +17,11 @@ class FragmentedPort:
 
 
 class BoardProtocolTests(unittest.TestCase):
-    def test_firmware_path_selects_parameter_specific_hwdisplay_image(self):
+    def test_firmware_path_selects_unified_hwdisplay_image(self):
         self.assertEqual(firmware_path("keygen", 640).name, "frodo_keygen.elf")
         for operation in ("keygen", "encaps", "decaps"):
             path = firmware_path(operation, 976, "HWDISPLAY")
-            self.assertEqual(path.name, f"frodo_{operation}_976.elf")
+            self.assertEqual(path.name, f"frodo_{operation}.elf")
             self.assertEqual(path.parent.parent.name, "HWDISPLAY")
 
     def test_fragmented_large_field(self):

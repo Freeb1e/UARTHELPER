@@ -37,8 +37,11 @@ LOW_STAGES = {
 
 def firmware_path(operation, parameter):
     app = f"scloud{'512' if parameter == 512 else ''}_{operation}"
-    target = app if parameter == 512 else f"{app}_{parameter}"
-    return ROOT / "e203_hbirdv2/scripts/HWDISPLAY" / app / f"{target}.elf"
+    return ROOT / "e203_hbirdv2/scripts/HWDISPLAY" / app / f"{app}.elf"
+
+
+def startup_parameter_list(parameter):
+    return "512" if parameter == 512 else "128,192,256"
 
 
 def prepare(operation, parameter):
@@ -183,7 +186,7 @@ def run(args):
             log.write(startup)
             log.flush()
             if f"READY SCLOUD_{args.operation.upper()}" not in startup or \
-                    f"PARA={args.parameter}" not in startup:
+                    f"PARA={startup_parameter_list(args.parameter)}" not in startup:
                 raise ValueError(f"wrong startup banner: {startup!r}")
             port = LoggedPort(device, log)
             for case, command in cases:

@@ -186,8 +186,8 @@ def compare_response(fields, expected):
 
 def firmware_path(operation, parameter, firmware_tree="BOARDSW"):
     name = f"frodo_{operation}"
-    target = name + (f"_{parameter}" if firmware_tree == "HWDISPLAY" or
-                     operation == "decaps" else "")
+    target = name if firmware_tree == "HWDISPLAY" else \
+        name + (f"_{parameter}" if operation == "decaps" else "")
     return ROOT / "e203_hbirdv2/scripts" / firmware_tree / name / f"{target}.elf"
 
 

@@ -6,6 +6,11 @@ import run_hwdisplay_tests as board
 
 
 class BoardRunnerTests(unittest.TestCase):
+    def test_startup_parameter_lists(self):
+        for parameter in (128, 192, 256):
+            self.assertEqual(board.startup_parameter_list(parameter), "128,192,256")
+        self.assertEqual(board.startup_parameter_list(512), "512")
+
     def test_firmware_paths(self):
         for parameter in (128, 192, 256, 512):
             for operation in ("keygen", "encaps", "decaps"):
@@ -13,7 +18,7 @@ class BoardRunnerTests(unittest.TestCase):
                     path = board.firmware_path(operation, parameter)
                     app = f"scloud{'512' if parameter == 512 else ''}_{operation}"
                     self.assertEqual(path.parent.name, app)
-                    self.assertEqual(path.name, f"{app}{'' if parameter == 512 else '_' + str(parameter)}.elf")
+                    self.assertEqual(path.name, f"{app}.elf")
                     self.assertEqual(path.parent.parent.name, "HWDISPLAY")
 
     def test_decaps_selects_valid_and_tampered_count_zero(self):

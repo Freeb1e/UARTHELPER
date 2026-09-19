@@ -1,7 +1,7 @@
 # HWDISPLAY Scloud+ board smoke tests
 
-`run_hwdisplay_tests.py` loads and verifies one parameter-specific HWDISPLAY
-image over JTAG, then checks official SM3 packed10 KAT Count=0 against complete
+`run_hwdisplay_tests.py` loads and verifies the HWDISPLAY image for the selected
+flow over JTAG, then checks official SM3 packed10 KAT Count=0 against complete
 board outputs. Decaps also checks a tampered Count=0 ciphertext and its
 independently calculated rejection secret. Valid requests are read from the
 pre-generated first UART commands in `SCLOUD{KEYGEN,ENCAPS,DECAPS}`. Those
@@ -14,7 +14,7 @@ Run from the repository root after loading a matching FPGA bitstream and
 building the target image:
 
 ```sh
-make -C e203_hbirdv2/scripts/HWDISPLAY/scloud_encaps check-image SCLOUD_PARAMETER=128
+make -C e203_hbirdv2/scripts/HWDISPLAY/scloud_encaps check-image
 .venv/bin/python -u UARTHELPER/SCLOUD/run_hwdisplay_tests.py \
     --operation encaps --parameter 128 --port /dev/ttyUSB2 \
     --results /tmp/hwdisplay-scloud-encaps-128

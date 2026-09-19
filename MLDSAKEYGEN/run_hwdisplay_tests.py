@@ -134,7 +134,7 @@ def run(args):
     inputs, helper, vectors = prepare(args.operation, args.parameter)
     firmware = (ROOT / "e203_hbirdv2/scripts/HWDISPLAY" /
                 f"kd_mldsa_{args.operation}" /
-                f"kd_mldsa_{args.operation}_{args.parameter}.elf")
+                f"kd_mldsa_{args.operation}.elf")
     firmware_hash = hashlib.sha256(firmware.read_bytes()).hexdigest()
     args.results.mkdir(parents=True, exist_ok=False)
     report = {"status": "RUNNING", "started_at": datetime.now(timezone.utc).isoformat(),
@@ -153,7 +153,7 @@ def run(args):
             upload(firmware, args.openocd, log)
             port = LoggedPort(device, log)
             deadline = time.monotonic() + 12
-            banner = f"READY MLDSA_{args.operation.upper()} PARA={args.parameter} "
+            banner = f"READY MLDSA_{args.operation.upper()} PARA=44,65,87 "
             while time.monotonic() < deadline:
                 if port.readline().decode("ascii", errors="replace").startswith(banner):
                     break

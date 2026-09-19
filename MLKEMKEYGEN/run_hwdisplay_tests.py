@@ -124,7 +124,7 @@ def run(args):
     inputs, helper, vectors = prepare(args.operation, args.parameter)
     firmware = (ROOT / "e203_hbirdv2/scripts/HWDISPLAY" /
                 f"kd_mlkem_{args.operation}" /
-                f"kd_mlkem_{args.operation}_{args.parameter}.elf")
+                f"kd_mlkem_{args.operation}.elf")
     args.results.mkdir(parents=True, exist_ok=False)
     report = {"status": "RUNNING", "started_at": datetime.now(timezone.utc).isoformat(),
               "operation": args.operation, "parameter": args.parameter,
@@ -145,7 +145,7 @@ def run(args):
             upload(firmware, log, args.openocd)
             port = LoggedPort(device, log)
             deadline = time.monotonic() + 10
-            banner = f"READY MLKEM_{args.operation.upper()} PARA={args.parameter} "
+            banner = f"READY MLKEM_{args.operation.upper()} PARA=512,768,1024 "
             while time.monotonic() < deadline:
                 if port.readline().decode("ascii", errors="replace").startswith(banner):
                     break
