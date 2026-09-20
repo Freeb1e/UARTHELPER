@@ -98,6 +98,12 @@ Prepared command files for all supported SM3 parameter sets (10 records each):
 - [256](keygen_commands_256.txt)
 - [512](keygen_commands_512.txt)
 
+The matching complete public and secret keys are stored in `pk_ref_<parameter>.txt`
+and `sk_ref_<parameter>.txt`. Line N in both files is the expected `PK=`/`SK=`
+output for line N of the command file. See the shared
+[manual acceptance guide](../MANUAL_VECTOR_ACCEPTANCE_CN.md) for single-line
+extraction and regeneration.
+
 Run all three sets sequentially on the same board image from the repository root:
 
 ```sh

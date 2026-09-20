@@ -16,3 +16,10 @@ so both board implementations must use exactly the same skip arguments.
 
 See `e203_hbirdv2/scripts/BOARDSW/kd_mldsa_sign/README.md` for build, upload,
 memory-layout and per-parameter commands.
+
+`sign_commands_<parameter>.txt` is a compact generation source whose first
+long field is a seed, so it must not be sent directly to the board. Manual
+acceptance uses `sign_uart_commands_<parameter>.txt`, which contains the full
+SK, and the same line of `sig_ref_<parameter>.txt` contains the expected
+`SIG=` output. See the
+[shared manual-vector guide](../MANUAL_VECTOR_ACCEPTANCE_CN.md).

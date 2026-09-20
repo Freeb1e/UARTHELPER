@@ -18,6 +18,38 @@
 !SCLOUDENCAPS/encaps_commands_512.txt
 !SCLOUDDECAPS/decaps_commands_512.txt
 
+# Line-aligned manual UART acceptance vectors and their generation inputs.
+!MANUAL_VECTOR_ACCEPTANCE_CN.md
+!input.txt
+!SCLOUDKEYGEN/keygen_commands_*.txt
+!SCLOUDKEYGEN/*_ref_*.txt
+!SCLOUDENCAPS/encaps_commands_*.txt
+!SCLOUDENCAPS/*_ref_*.txt
+!SCLOUDDECAPS/decaps_commands_*.txt
+!SCLOUDDECAPS/*_ref_*.txt
+!MLKEMKEYGEN/generate_golden.c
+!MLKEMKEYGEN/keygen_commands_*.txt
+!MLKEMKEYGEN/*_ref_*.txt
+!MLKEMENCAPS/generate_golden.c
+!MLKEMENCAPS/encaps_inputs_*.txt
+!MLKEMENCAPS/encaps_commands_*.txt
+!MLKEMENCAPS/*_ref_*.txt
+!MLKEMDECAPS/generate_golden.c
+!MLKEMDECAPS/decaps_inputs_*.txt
+!MLKEMDECAPS/decaps_commands_*.txt
+!MLKEMDECAPS/*_ref_*.txt
+!MLDSAKEYGEN/generate_golden.c
+!MLDSAKEYGEN/keygen_commands_*.txt
+!MLDSAKEYGEN/*_ref_*.txt
+!MLDSASIGN/generate_golden.c
+!MLDSASIGN/sign_commands_*.txt
+!MLDSASIGN/sign_uart_commands_*.txt
+!MLDSASIGN/*_ref_*.txt
+!MLDSAVERIFY/generate_golden.c
+!MLDSAVERIFY/verify_commands_*.txt
+!MLDSAVERIFY/verify_uart_commands_*.txt
+!MLDSAVERIFY/*_ref_*.txt
+
 # 保留 .gitignore 自身
 !.gitignore
 

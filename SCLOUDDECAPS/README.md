@@ -28,6 +28,11 @@ test keys. Load the matching [parameter image](../../e203_hbirdv2/scripts/BOARDS
 before running a lower-parameter test. Parameter 512 uses
 `e203_hbirdv2/scripts/BOARDSW/scloud512_decaps`:
 
+`ss_ref_<parameter>.txt` and `fail_mask_ref_<parameter>.txt` contain the
+expected `SS=` and decimal `FAIL_MASK=` values in the same line order. See the
+[manual acceptance guide](../MANUAL_VECTOR_ACCEPTANCE_CN.md) for single-case
+use and regeneration.
+
 ```sh
 python3 -m pip install -r UARTHELPER/SCLOUDKEYGEN/requirements.txt
 python3 -u UARTHELPER/SCLOUDDECAPS/run_decaps_tests.py \

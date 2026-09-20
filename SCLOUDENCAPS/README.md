@@ -27,6 +27,11 @@ done
 Each file contains 10 complete `ENCAPS <parameter> <pk_hex> <message_hex>`
 commands. These are deterministic test inputs, not TRNG output.
 
+`ct_ref_<parameter>.txt` and `ss_ref_<parameter>.txt` contain the complete
+expected `CT=` and `SS=` values in exactly the same line order. See the
+[manual acceptance guide](../MANUAL_VECTOR_ACCEPTANCE_CN.md) for extracting
+one command/reference tuple and checking all generated files.
+
 Load the matching [board image](../../e203_hbirdv2/scripts/BOARDSW/scloud_encaps/README.md)
 before running each lower parameter. Parameter 512 uses the separate
 `e203_hbirdv2/scripts/BOARDSW/scloud512_encaps` image. For example, after
