@@ -20,7 +20,6 @@
 
 # Line-aligned manual UART acceptance vectors and their generation inputs.
 !MANUAL_VECTOR_ACCEPTANCE_CN.md
-!input.txt
 !SCLOUDKEYGEN/keygen_commands_*.txt
 !SCLOUDKEYGEN/*_ref_*.txt
 !SCLOUDENCAPS/encaps_commands_*.txt
@@ -72,3 +71,5 @@
 !FRODODECAPS/cases_*.jsonl
 !FRODODECAPS/requirements.txt
 !FRODODECAPS/CHAGELOG.md
+
+input.txt
