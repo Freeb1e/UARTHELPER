@@ -14,8 +14,10 @@ Generated performance batches can use repeatable `--benchmark-skip INDEX`
 arguments. The requested output count is preserved by deriving later indexes,
 so both board implementations must use exactly the same skip arguments.
 
-See `e203_hbirdv2/scripts/BOARDSW/kd_mldsa_sign/README.md` for build, upload,
-memory-layout and per-parameter commands.
+The former UART firmware has been removed. Reference generation and host UART
+protocol tools remain; UART execution requires a separately supplied compatible
+device. Current PACE Frodo/Scloud firmware uses DTCM simulation inputs and does
+not implement this ML-DSA UART protocol.
 
 `sign_commands_<parameter>.txt` is a compact generation source whose first
 long field is a seed, so it must not be sent directly to the board. Manual

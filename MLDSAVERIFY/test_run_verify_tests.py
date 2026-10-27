@@ -44,14 +44,6 @@ class FakeSerial:
 
 
 class MldsaVerifyTests(unittest.TestCase):
-    def test_firmware_requires_verify_sampler_masks(self) -> None:
-        source = (
-            MODULE.PROJECT_ROOT
-            / "e203_hbirdv2/scripts/BOARDSW/kd_mldsa_verify/main.c"
-        ).read_text(encoding="ascii")
-        for mask in ("0x108u", "0x208u", "0x408u"):
-            self.assertIn(mask, source)
-
     def test_load_inputs_accepts_comments(self) -> None:
         value = bytes(range(32))
         with tempfile.TemporaryDirectory() as directory:

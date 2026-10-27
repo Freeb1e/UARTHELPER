@@ -6,19 +6,16 @@ from pathlib import Path
 import subprocess
 import sys
 
-from run_board_tests import DEFAULT_OPENOCD, PARAMETERS, save_json
+from reference_vectors import PARAMETERS, save_json
 from run_kat_tests import digest, execute, read_stage_files, verification_requests
 
 
 def main(operation, directory, argv=None):
     parser = argparse.ArgumentParser(
-        description=f"Load Frodo {operation} firmware and compare reference outputs.")
+        description=f"Send Frodo {operation} requests to an existing legacy UART device.")
     parser.add_argument("--parameter", type=int, choices=PARAMETERS, required=True)
     parser.add_argument("--port", required=True)
     parser.add_argument("--results", type=Path, required=True)
-    parser.add_argument("--openocd", type=Path, default=DEFAULT_OPENOCD)
-    parser.add_argument("--firmware-tree", choices=("BOARDSW", "HWDISPLAY"),
-                        default="BOARDSW")
     parser.add_argument("--line", type=int, help="run only this 1-based command/reference line")
     parser.add_argument("--compact", action="store_true",
                         help="verify PKH for KeyGen, SS for Encaps and SS/mask for Decaps; omit PK/CT output")
@@ -26,7 +23,6 @@ def main(operation, directory, argv=None):
     summary = dict(status="RUNNING", operation=operation, parameter=args.parameter,
                    started_at=datetime.now(timezone.utc).isoformat(),
                    port=args.port, baud_rate=115200, passed=0,
-                   firmware_tree=args.firmware_tree,
                    verification_mode="compact" if args.compact else "full")
     created = False
     try:

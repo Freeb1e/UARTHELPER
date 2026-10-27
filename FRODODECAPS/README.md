@@ -1,4 +1,9 @@
-# Frodo decaps independent board tests
+# Frodo decaps legacy UART vectors
+
+The former UART firmware has been removed. This host tool requires a separately
+supplied compatible UART device. Current
+[PACE firmware](../../e203_hbirdv2/scripts/PQC-PACE-Frodo/README.md) uses DTCM
+simulation inputs and does not implement these UART commands.
 
 This directory contains only official KAT decaps inputs and references for
 FrodoKEM-SHAKE-640/976/1344. Files use ASCII, LF line endings, uppercase hex
@@ -25,30 +30,17 @@ SS is the complete shared secret. FAIL_MASK is decimal 0 for every official KAT 
 
 ## Independent Run
 
-Run from the merged repository root; the board must have the accelerator
-bitstream loaded and the matching ELF built:
+Run from the repository root with a compatible UART device already running:
 
 ```sh
 .venv/bin/python -u UARTHELPER/FRODODECAPS/run_decaps_tests.py \
     --parameter 640 --port /dev/ttyUSB2 --results /tmp/frodo-decaps-640
 ```
 
-The script loads and verifies the CPU image through JTAG before sending this
-stage's commands. Results must use a new directory. Override the installed
-OpenOCD with `--openocd PATH`. The complete UART transcript and JSONL outcomes
-are saved in that directory. Use `--line 1` to run just the first input and
-its reference. Use the same option with another line number to reproduce any
-individual case.
-
-To test the optimized HWDISPLAY images, build the matching
-`e203_hbirdv2/scripts/HWDISPLAY/frodo_decaps/frodo_decaps_P.elf` and pass
-`--firmware-tree HWDISPLAY` (the default is BOARDSW). For example:
-
-```sh
-.venv/bin/python -u UARTHELPER/FRODODECAPS/run_decaps_tests.py \
-    --parameter 640 --port /dev/ttyUSB2 --line 1 \
-    --firmware-tree HWDISPLAY --results /tmp/hwdisplay-frodo-decaps-640
-```
+The script sends this stage's commands without loading a CPU image. Results
+must use a new directory, which receives complete UART transcripts and JSONL
+outcomes. Use `--line 1` to run only the first input and its reference, or
+another line number to reproduce an individual case.
 
 `--compact` is accepted for consistency with KeyGen and Encaps:
 
@@ -66,8 +58,8 @@ Results record compact mode and the checked SS/FAIL_MASK fields. See the shared
 
 ## Manual UART Input
 
-After loading the matching firmware, extract the same line from the command
-and reference files. For example, from the repository root:
+For a compatible UART device, extract the same line from the command and
+reference files. For example, from the repository root:
 
 ```sh
 sed -n '1p' UARTHELPER/FRODODECAPS/decaps_commands_640.txt
@@ -80,7 +72,8 @@ Send the command at 115200 8N1 with a final newline. Wait for `END` before
 sending the next line. These commands request cycle counters and the full
 algorithm output. Compare hex values case-insensitively.
 
-The largest Decaps command is 129,586 bytes including newline. The board streams it directly into binary buffers; ensure a manual UART tool does not truncate long lines.
+The largest Decaps command is 129,586 bytes including newline; ensure the
+UART device and manual tool can accept the complete line without truncation.
 
 Shared source import, coverage inventory and protocol logic are under
 [`../FRODO/`](../FRODO/README.md). The independent entry point reads the

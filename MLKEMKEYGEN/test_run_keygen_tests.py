@@ -43,13 +43,6 @@ class FakeSerial:
 
 
 class MlkemKeygenTests(unittest.TestCase):
-    def test_firmware_uses_keygen_only_sampler_masks(self) -> None:
-        source = (
-            MODULE.PROJECT_ROOT
-            / "e203_hbirdv2/scripts/BOARDSW/kd_mlkem_keygen/main.c"
-        ).read_text(encoding="ascii")
-        self.assertIn("KYBER_K == 2 ? 0x5u : 0x3u", source)
-
     def test_load_coins_accepts_comments_and_three_cases(self) -> None:
         coins = bytes(range(64))
         with tempfile.TemporaryDirectory() as directory:

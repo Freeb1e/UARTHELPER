@@ -5,8 +5,10 @@ the repository's unaccelerated reference. For every base input it creates one
 valid ciphertext and one single-bit-tampered ciphertext, sends the complete SK
 and CT to the matching board image, and compares all 32 shared-secret bytes.
 
-See `e203_hbirdv2/scripts/BOARDSW/kd_mlkem_decaps/README.md` for the build,
-upload and per-security-level commands.
+The former UART firmware has been removed. Reference generation and host UART
+protocol tools remain; UART execution requires a separately supplied compatible
+device. Current PACE Frodo/Scloud firmware uses DTCM simulation inputs and does
+not implement this ML-KEM UART protocol.
 
 For manual acceptance, use `decaps_commands_<parameter>.txt`; each line is a
 complete board command and the same line of `ss_ref_<parameter>.txt` is its

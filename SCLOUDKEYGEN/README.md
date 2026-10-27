@@ -1,5 +1,11 @@
 # Scloud+ KeyGen UART tests
 
+The former UART firmware has been removed. This host tool requires a separately
+supplied compatible UART device. Current
+[PACE firmware](../../e203_hbirdv2/scripts/PQC-PACE-Scloud/README.md) uses DTCM
+simulation inputs for 128/192/256 and does not implement these UART commands.
+Parameter-512 vectors remain reference data, not current PACE support.
+
 `run_keygen_tests.py` reads canonical Scloud+ KAT records directly from
 `third_party/Scloud+/Test_Vectors`. For each record it derives `z` and `alpha`
 from `Seed` on the host and sends `KEYGEN <parameter> <z||alpha_hex>`, waits
@@ -7,17 +13,15 @@ for `END`, and compares the returned
 complete `PK` and `SK` values with that same record. A malformed response,
 board error, timeout, or first mismatch stops the run immediately.
 
-The production board firmware supports `128-SM3`, `192-SM3`, and `256-SM3` in
-one image. Parameter 512 uses the separate tiled
-`e203_hbirdv2/scripts/BOARDSW/scloud512_keygen` image. The tool reads the
-parameter from the KAT filename and uses the matching protocol automatically.
+The tool reads the parameter from the KAT filename and constructs the matching
+legacy UART request for 128/192/256/512-SM3.
 
 The host requires `cc` (a C compiler). Each run builds a temporary helper using
 the merged repository's official `Implementations/_shared/api_pkc/drng.c`.
 It initializes DRNG separately for each seed, then draws `z` and `alpha` in
 two calls. Each draw is 64 bytes for parameters 128/192/256 and 128 bytes for
 parameter 512. No DRNG implementation is duplicated in Python.
-Use the version-3 board firmware; the previous Seed-only protocol is removed.
+The client uses the legacy version-3 protocol with explicit `z || alpha` inputs.
 
 From the merged repository root, install the serial dependency and run the default
 128-SM3 vectors with:
@@ -42,7 +46,7 @@ python3 UARTHELPER/SCLOUDKEYGEN/run_keygen_tests.py \
     --vectors third_party/Scloud+/Test_Vectors/KAT_KEM_Scloudplus-256-SM3-packed10.txt
 ```
 
-After loading the 512 KeyGen image, run its canonical vectors with:
+For a separately supplied UART device supporting parameter 512:
 
 ```sh
 python3 UARTHELPER/SCLOUDKEYGEN/run_keygen_tests.py \
@@ -104,7 +108,7 @@ output for line N of the command file. See the shared
 [manual acceptance guide](../MANUAL_VECTOR_ACCEPTANCE_CN.md) for single-line
 extraction and regeneration.
 
-Run all three sets sequentially on the same board image from the repository root:
+For a compatible UART device supporting all three lower sets, run sequentially:
 
 ```sh
 for parameter in 128 192 256; do

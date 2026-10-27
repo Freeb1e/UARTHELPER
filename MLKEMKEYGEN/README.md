@@ -1,8 +1,9 @@
 # KD ML-KEM KeyGen UART helper
 
-The complete beginner-oriented build, upload, UART protocol and automatic test
-walkthrough is in
-[`e203_hbirdv2/scripts/BOARDSW/kd_mlkem_keygen/README.md`](../../e203_hbirdv2/scripts/BOARDSW/kd_mlkem_keygen/README.md).
+The former UART firmware has been removed. Reference generation and host UART
+protocol tools remain; UART execution requires a separately supplied compatible
+device. Current PACE Frodo/Scloud firmware uses DTCM simulation inputs and does
+not implement this ML-KEM UART protocol.
 
 Quick host-only check:
 
@@ -11,7 +12,7 @@ python3 run_keygen_tests.py --parameter 512 --golden-only
 python3 -m unittest discover -s . -p 'test_*.py'
 ```
 
-Quick board run after loading the matching image:
+For an already running compatible UART device:
 
 ```sh
 python3 run_keygen_tests.py --port /dev/ttyUSB2 --parameter 512 --cpu-mhz 100

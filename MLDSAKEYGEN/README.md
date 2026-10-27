@@ -4,8 +4,10 @@
 repository's unaccelerated Dilithium reference, sends the same 32-byte seed to
 the matching board firmware, and compares the complete returned keys.
 
-See `e203_hbirdv2/scripts/BOARDSW/kd_mldsa_keygen/README.md` for build, upload,
-memory-layout and per-parameter commands.
+The former UART firmware has been removed. Reference generation and host UART
+protocol tools remain; UART execution requires a separately supplied compatible
+device. Current PACE Frodo/Scloud firmware uses DTCM simulation inputs and does
+not implement this ML-DSA UART protocol.
 
 For manual acceptance, line N of `keygen_commands_<parameter>.txt` corresponds
 to line N of `pk_ref_<parameter>.txt` and `sk_ref_<parameter>.txt`. The latter

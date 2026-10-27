@@ -5,8 +5,10 @@ repository's unaccelerated Dilithium reference. It sends each valid signature
 and a single-bit-tampered counterpart to the board and compares the acceptance
 decision.
 
-See `e203_hbirdv2/scripts/BOARDSW/kd_mldsa_verify/README.md` for build, upload,
-memory-layout and per-parameter commands.
+The former UART firmware has been removed. Reference generation and host UART
+protocol tools remain; UART execution requires a separately supplied compatible
+device. Current PACE Frodo/Scloud firmware uses DTCM simulation inputs and does
+not implement this ML-DSA UART protocol.
 
 `verify_commands_<parameter>.txt` is a compact generation source. Manual
 acceptance uses `verify_uart_commands_<parameter>.txt`, containing the complete

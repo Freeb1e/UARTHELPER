@@ -60,14 +60,6 @@ class FakeSerial:
 
 
 class MldsaSignTests(unittest.TestCase):
-    def test_firmware_requires_sign_sampler_masks(self) -> None:
-        source = (
-            MODULE.PROJECT_ROOT
-            / "e203_hbirdv2/scripts/BOARDSW/kd_mldsa_sign/main.c"
-        ).read_text(encoding="ascii")
-        for mask in ("0x148u", "0x288u", "0x488u"):
-            self.assertIn(mask, source)
-
     def test_load_inputs_accepts_comments(self) -> None:
         value = bytes(range(32))
         with tempfile.TemporaryDirectory() as directory:

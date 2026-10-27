@@ -44,16 +44,6 @@ class FakeSerial:
 
 
 class MlkemDecapsTests(unittest.TestCase):
-    def test_firmware_requires_decaps_sampler_masks_and_all_poly_operations(self) -> None:
-        source = (
-            MODULE.PROJECT_ROOT
-            / "e203_hbirdv2/scripts/BOARDSW/kd_mlkem_decaps/main.c"
-        ).read_text(encoding="ascii")
-        self.assertIn("KYBER_K == 2 ? 0x7u : 0x3u", source)
-        self.assertIn("poly->ntt_calls == 0u", source)
-        self.assertIn("poly->intt_calls == 0u", source)
-        self.assertIn("poly->pointwise_calls == 0u", source)
-
     def test_load_inputs_accepts_comments(self) -> None:
         keygen_coins = bytes(range(64))
         encaps_coins = bytes(range(32))

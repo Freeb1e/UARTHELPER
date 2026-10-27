@@ -1,5 +1,11 @@
 # Scloud+ Decaps UART tests
 
+The former UART firmware has been removed. UART execution requires a separately
+supplied compatible device. Current
+[PACE firmware](../../e203_hbirdv2/scripts/PQC-PACE-Scloud/README.md) uses DTCM
+simulation inputs for 128/192/256 and does not implement these UART commands.
+Parameter-512 vectors remain reference data, not current PACE support.
+
 The runner sends official KAT SK and CT directly to the board. Decapsulation
 requires no DRNG. Each parameter run checks all 10 canonical valid records,
 then flips bit 7 of the last CT byte of Count 0 and checks implicit rejection.
@@ -24,14 +30,14 @@ done
 
 Each file contains 11 `DECAPS <parameter> <sk_hex> <ct_hex>` commands. The first
 10 are valid KATs; the last is the tampered Count 0 case. These are public KAT
-test keys. Load the matching [parameter image](../../e203_hbirdv2/scripts/BOARDSW/scloud_decaps/README.md)
-before running a lower-parameter test. Parameter 512 uses
-`e203_hbirdv2/scripts/BOARDSW/scloud512_decaps`:
+test keys.
 
 `ss_ref_<parameter>.txt` and `fail_mask_ref_<parameter>.txt` contain the
 expected `SS=` and decimal `FAIL_MASK=` values in the same line order. See the
 [manual acceptance guide](../MANUAL_VECTOR_ACCEPTANCE_CN.md) for single-case
 use and regeneration.
+
+For a separately supplied UART device supporting parameter 512:
 
 ```sh
 python3 -m pip install -r UARTHELPER/SCLOUDKEYGEN/requirements.txt

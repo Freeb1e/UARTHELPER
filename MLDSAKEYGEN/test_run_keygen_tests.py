@@ -43,13 +43,6 @@ class FakeSerial:
 
 
 class MldsaKeygenTests(unittest.TestCase):
-    def test_firmware_requires_keygen_sampler_masks(self) -> None:
-        source = (
-            MODULE.PROJECT_ROOT
-            / "e203_hbirdv2/scripts/BOARDSW/kd_mldsa_keygen/main.c"
-        ).read_text(encoding="ascii")
-        self.assertIn("DILITHIUM_MODE == 3 ? 0x28u : 0x18u", source)
-
     def test_load_seeds_accepts_comments(self) -> None:
         seed = bytes(range(32))
         with tempfile.TemporaryDirectory() as directory:

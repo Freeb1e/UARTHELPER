@@ -7,10 +7,10 @@ import unittest
 from unittest.mock import MagicMock, patch
 
 from run_kat_tests import (
-    export_stage_files, read_stage_files, read_kat, verified_prior_results,
+    export_stage_files, read_stage_files, read_kat,
     verification_requests, execute, main,
 )
-from run_board_tests import SIZES, compare_response
+from reference_vectors import SIZES, compare_response
 
 
 class ExistingVectorTests(unittest.TestCase):
@@ -30,17 +30,14 @@ class ExistingVectorTests(unittest.TestCase):
                     response = (f"OK PARA={parameter}\r\n" + "".join(
                         f"{name}={value}\r\n" for name, value in request["expected"].items()) +
                         "CPU_HZ=20000000\r\nCYCLES_ALGORITHM_TOTAL=123\r\nEND\r\n").encode()
-                    version = 2 if operation == "keygen" else 1
                     port = MagicMock()
                     port.__enter__.return_value = port
                     port.in_waiting = 5
-                    port.read.side_effect = [f"READY FRODO_{operation.upper()} {version}\r\n".encode()] + [
+                    port.read.side_effect = [
                         response[i:i + 5] for i in range(0, len(response), 5)]
                     port.write.return_value = len(payload)
                     summary = dict(verification_mode="compact")
-                    with patch("serial.Serial", return_value=port), \
-                         patch("run_kat_tests.upload", return_value="firmware hash"), \
-                         patch("run_kat_tests.time.sleep"):
+                    with patch("serial.Serial", return_value=port):
                         execute(SimpleNamespace(port="mock", results=root), [request], summary)
                     port.write.assert_called_once_with(payload)
                     record = json.loads((root / "results.jsonl").read_text())
@@ -52,38 +49,6 @@ class ExistingVectorTests(unittest.TestCase):
                     self.assertEqual(record["command_sha256"], hashlib.sha256(payload).hexdigest())
                     self.assertEqual(summary["status"], "PASS")
                     self.assertEqual(summary["passed"], 1)
-
-    def test_prior_results_require_same_input_firmware_and_complete_output(self):
-        request = dict(parameter=640, operation="decaps", source="official.rsp",
-                       case=0, kind="valid", command="DECAPS fixture",
-                       expected={"SS": "AB", "FAIL_MASK": "0"},
-                       verification_mode="full", verified_fields=["SS", "FAIL_MASK"])
-        with tempfile.TemporaryDirectory() as temporary:
-            root = Path(temporary)
-            firmware = root / "test.elf"
-            firmware.write_bytes(b"test firmware")
-            result = dict(request, status="PASS", response={
-                "SS": "AB", "FAIL_MASK": "0", "CYCLES_ALGORITHM_TOTAL": "1"},
-                firmware_sha256=hashlib.sha256(firmware.read_bytes()).hexdigest(),
-                command_sha256=hashlib.sha256(b"DECAPS fixture\n").hexdigest())
-            prior = root / "prior.jsonl"
-            with patch("run_kat_tests.firmware_path", return_value=firmware):
-                prior.write_text(json.dumps(dict(result, source="history.json")) + "\n" +
-                                 json.dumps(result) + "\n")
-                accepted = verified_prior_results(prior, [request])
-                self.assertEqual(len(accepted), 1)
-                self.assertEqual(next(iter(accepted.values()))["reused_from"]["line"], 2)
-                for changed in (
-                    dict(result, command_sha256="wrong"),
-                    dict(result, firmware_sha256="wrong"),
-                    dict(result, response=dict(result["response"], SS="AC")),
-                ):
-                    prior.write_text(json.dumps(changed) + "\n")
-                    with self.assertRaises(ValueError):
-                        verified_prior_results(prior, [request])
-                prior.write_text((json.dumps(result) + "\n") * 2)
-                with self.assertRaises(ValueError):
-                    verified_prior_results(prior, [request])
 
     def test_stage_export_roundtrip_and_misaligned_reference(self):
         for parameter, sizes in SIZES.items():
@@ -144,58 +109,28 @@ class ExistingVectorTests(unittest.TestCase):
                         with self.assertRaises(ValueError):
                             read_stage_files(directory, parameter, operation)
 
-    def test_compact_reuse_cannot_count_as_full_keygen_or_encaps(self):
-        with tempfile.TemporaryDirectory() as temporary:
-            root = Path(temporary)
-            firmware = root / "test.elf"
-            firmware.write_bytes(b"test firmware")
-            for operation, expected in (("keygen", {"PK": "AB", "PKH": "CD"}),
-                                        ("encaps", {"CT": "AB", "SS": "CD"})):
-                request = dict(parameter=640, operation=operation, source="official.rsp",
-                               case=0, kind="valid", command=f"{operation.upper()} 640 1 1 AB",
-                               expected=expected)
-                compact = verification_requests([request], True)[0]
-                record = dict(compact, status="PASS", response=dict(
-                    compact["expected"], CYCLES_ALGORITHM_TOTAL="1"),
-                    firmware_sha256=hashlib.sha256(firmware.read_bytes()).hexdigest(),
-                    command_sha256=hashlib.sha256((compact["command"] + "\n").encode()).hexdigest())
-                prior = root / "prior.jsonl"
-                prior.write_text(json.dumps(record) + "\n")
-                with patch("run_kat_tests.firmware_path", return_value=firmware):
-                    self.assertEqual(len(verified_prior_results(prior, [compact])), 1)
-                    with self.assertRaisesRegex(ValueError, "command does not match"):
-                        verified_prior_results(prior, verification_requests([request], False))
-
-    def test_official_compact_cli_preserves_full_stage_files(self):
+    def test_official_cli_preserves_full_stage_files(self):
         request = dict(parameter=640, operation="keygen", source="official.rsp",
                        case=0, kind="valid", command="KEYGEN 640 1 1 " + "AB" * 64,
                        expected={"PK": "CD" * 9616, "PKH": "EF" * 16})
-        for prepare_only in (False, True):
-            with self.subTest(prepare_only=prepare_only), tempfile.TemporaryDirectory() as temporary:
-                root = Path(temporary)
-                def read_batch(directory, parameter, operation):
-                    if parameter == 640 and operation == "keygen":
-                        return read_stage_files(directory, parameter, operation)
-                    return []
-                with patch("run_kat_tests.ROOT", root), \
-                     patch("run_kat_tests.inventory", return_value=([request], {})), \
-                     patch("run_kat_tests.read_stage_files", side_effect=read_batch), \
-                     patch("run_kat_tests.execute") as execute:
-                    status = main(["--reference-root", str(root), "--compact",
-                                   "--results", str(root / "results")] +
-                                  (["--prepare-only"] if prepare_only else []))
-                self.assertEqual(status, 0)
-                self.assertEqual(read_stage_files(root / "UARTHELPER/FRODOKEYGEN", 640, "keygen"),
-                                 [request])
-                summary = json.loads((root / "results/summary.json").read_text())
-                self.assertEqual(summary["verification_mode"], "compact")
-                if prepare_only:
-                    execute.assert_not_called()
-                    self.assertEqual(summary["status"], "PREPARED")
-                else:
-                    selected = execute.call_args.args[1][0]
-                    self.assertEqual(selected["command"].split()[:4], ["KEYGEN", "640", "1", "0"])
-                    self.assertEqual(selected["expected"], {"PKH": request["expected"]["PKH"]})
+        with tempfile.TemporaryDirectory() as temporary:
+            root = Path(temporary)
+            def read_batch(directory, parameter, operation):
+                if parameter == 640 and operation == "keygen":
+                    return read_stage_files(directory, parameter, operation)
+                return []
+            with patch("run_kat_tests.ROOT", root), \
+                 patch("run_kat_tests.inventory", return_value=([request], {})), \
+                 patch("run_kat_tests.read_stage_files", side_effect=read_batch), \
+                 patch("run_kat_tests.execute") as execute:
+                status = main(["--reference-root", str(root),
+                               "--results", str(root / "results")])
+            self.assertEqual(status, 0)
+            self.assertEqual(read_stage_files(root / "UARTHELPER/FRODOKEYGEN", 640, "keygen"),
+                             [request])
+            summary = json.loads((root / "results/summary.json").read_text())
+            execute.assert_not_called()
+            self.assertEqual(summary["status"], "PREPARED")
 
     def test_kat_rejects_missing_duplicate_and_nonsequential_fields(self):
         sizes = SIZES[640]

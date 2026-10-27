@@ -1,4 +1,9 @@
-# Frodo encaps independent board tests
+# Frodo encaps legacy UART vectors
+
+The former UART firmware has been removed. This host tool requires a separately
+supplied compatible UART device. Current
+[PACE firmware](../../e203_hbirdv2/scripts/PQC-PACE-Frodo/README.md) uses DTCM
+simulation inputs and does not implement these UART commands.
 
 This directory contains only official KAT encaps inputs and references for
 FrodoKEM-SHAKE-640/976/1344. Files use ASCII, LF line endings, uppercase hex
@@ -25,30 +30,17 @@ CT includes the complete ciphertext and salt. Both CT and SS are checked by defa
 
 ## Independent Run
 
-Run from the merged repository root; the board must have the accelerator
-bitstream loaded and the matching ELF built:
+Run from the repository root with a compatible UART device already running:
 
 ```sh
 .venv/bin/python -u UARTHELPER/FRODOENCAPS/run_encaps_tests.py \
     --parameter 640 --port /dev/ttyUSB2 --results /tmp/frodo-encaps-640
 ```
 
-The script loads and verifies the CPU image through JTAG before sending this
-stage's commands. Results must use a new directory. Override the installed
-OpenOCD with `--openocd PATH`. The complete UART transcript and JSONL outcomes
-are saved in that directory. Use `--line 1` to run just the first input and
-its reference. Use the same option with another line number to reproduce any
-individual case.
-
-To test a parameter-specific optimized HWDISPLAY image instead of the default
-BOARDSW image, build `e203_hbirdv2/scripts/HWDISPLAY/frodo_encaps/frodo_encaps_P.elf`
-and pass `--firmware-tree HWDISPLAY`. For example:
-
-```sh
-.venv/bin/python -u UARTHELPER/FRODOENCAPS/run_encaps_tests.py \
-    --parameter 640 --port /dev/ttyUSB2 --line 1 \
-    --firmware-tree HWDISPLAY --results /tmp/hwdisplay-frodo-encaps-640
-```
+The script sends this stage's commands without loading a CPU image. Results
+must use a new directory, which receives complete UART transcripts and JSONL
+outcomes. Use `--line 1` to run only the first input and its reference, or
+another line number to reproduce an individual case.
 
 Add `--compact` for SS-only verification without transmitting the output CT:
 
@@ -66,8 +58,8 @@ the complete CT as well. See the shared
 
 ## Manual UART Input
 
-After loading the matching firmware, extract the same line from the command
-and reference files. For example, from the repository root:
+For a compatible UART device, extract the same line from the command and
+reference files. For example, from the repository root:
 
 ```sh
 sed -n '1p' UARTHELPER/FRODOENCAPS/encaps_commands_640.txt

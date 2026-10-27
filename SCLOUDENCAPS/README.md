@@ -1,5 +1,11 @@
 # Scloud+ Encaps board KATs
 
+The former UART firmware has been removed. UART execution requires a separately
+supplied compatible device. Current
+[PACE firmware](../../e203_hbirdv2/scripts/PQC-PACE-Scloud/README.md) uses DTCM
+simulation inputs for 128/192/256 and does not implement these UART commands.
+Parameter-512 vectors remain reference data, not current PACE support.
+
 The runner reads the merged repository's canonical 128/192/256/512-SM3 packed10
 KATs, invokes the official `api_pkc/drng.c` on the host, and sends PK and message
 m to the board. DRNG state follows the official KAT sequence: initialize Seed,
@@ -32,10 +38,7 @@ expected `CT=` and `SS=` values in exactly the same line order. See the
 [manual acceptance guide](../MANUAL_VECTOR_ACCEPTANCE_CN.md) for extracting
 one command/reference tuple and checking all generated files.
 
-Load the matching [board image](../../e203_hbirdv2/scripts/BOARDSW/scloud_encaps/README.md)
-before running each lower parameter. Parameter 512 uses the separate
-`e203_hbirdv2/scripts/BOARDSW/scloud512_encaps` image. For example, after
-loading the 512 image:
+For a separately supplied UART device supporting parameter 512:
 
 ```sh
 python3 -u UARTHELPER/SCLOUDENCAPS/run_encaps_tests.py \

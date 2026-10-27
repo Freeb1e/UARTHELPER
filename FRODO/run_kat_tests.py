@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Run only the official 100-record FrodoKEM-SHAKE KAT for each parameter."""
+"""Prepare official FrodoKEM-SHAKE KATs and support legacy UART protocol tools."""
 
 import argparse
 from collections import Counter
@@ -11,11 +11,10 @@ from pathlib import Path
 import subprocess
 import sys
 import tempfile
-import time
 
-from run_board_tests import (
-    ROOT, SIZES, PARAMETERS, OPERATIONS, DEFAULT_OPENOCD, build_requests,
-    compare_response, firmware_path, hex_bytes, receive, save_json, upload,
+from reference_vectors import (
+    ROOT, SIZES, PARAMETERS, OPERATIONS,
+    compare_response, hex_bytes, receive, save_json,
 )
 
 
@@ -223,11 +222,6 @@ def read_stage_files(directory, parameter, operation):
     return requests
 
 
-def request_key(request):
-    return (request["parameter"], request["operation"], request["source"],
-            request["case"], request["kind"])
-
-
 def verification_requests(requests, compact):
     selected = []
     for request in requests:
@@ -243,33 +237,7 @@ def verification_requests(requests, compact):
     return selected
 
 
-def verified_prior_results(path, requests, firmware_tree="BOARDSW"):
-    expected = {request_key(request): request for request in requests}
-    reuse = {}
-    for line_number, line in enumerate(path.read_text().splitlines(), 1):
-        record = json.loads(line)
-        key = request_key(record)
-        if record.get("status") != "PASS" or key not in expected:
-            continue
-        request = expected[key]
-        payload = (request["command"] + "\n").encode("ascii")
-        if record["command_sha256"] != hashlib.sha256(payload).hexdigest():
-            raise ValueError("previous command does not match current KAT")
-        if record["firmware_sha256"] != digest(firmware_path(
-                request["operation"], request["parameter"], firmware_tree)):
-            raise ValueError("previous firmware differs from current firmware")
-        compare_response(record["response"], request["expected"])
-        record.update(verification_mode=request["verification_mode"],
-                      verified_fields=request["verified_fields"])
-        if key in reuse:
-            raise ValueError("duplicate previously passed KAT result")
-        record["reused_from"] = dict(path=str(path.resolve()), line=line_number)
-        reuse[key] = record
-    return reuse
-
-
-def execute(args, requests, summary, reuse=None):
-    reuse = {} if reuse is None else reuse
+def execute(args, requests, summary):
     import serial
     counts = Counter()
     with serial.Serial(args.port, 115200, timeout=0.1, write_timeout=120,
@@ -281,35 +249,14 @@ def execute(args, requests, summary, reuse=None):
                          and r["operation"] == operation]
                 if not batch:
                     continue
-                reused = [reuse[request_key(r)] for r in batch if request_key(r) in reuse]
-                for record in reused:
-                    records.write(json.dumps(record) + "\n")
-                    counts[f"{parameter}_{operation}"] += 1
-                if reused:
-                    records.flush()
-                    summary.update(passed=sum(counts.values()), batches=dict(counts))
-                    save_json(args.results / "summary.json", summary)
-                    print(f"REUSED Frodo-{parameter} {operation}: {len(reused)} verified KATs",
-                          flush=True)
-                batch = [r for r in batch if request_key(r) not in reuse]
-                if not batch:
-                    continue
                 with (args.results / f"{operation}_{parameter}.txt").open(
                         "w", encoding="ascii") as log:
-                    firmware_hash = upload(args, operation, parameter, log)
-                    time.sleep(1)
-                    startup = port.read(port.in_waiting).decode("ascii")
-                    log.write(startup)
-                    version = 2 if operation == "keygen" else 1
-                    if f"READY FRODO_{operation.upper()} {version}" not in startup:
-                        raise ValueError(f"missing READY: {startup!r}")
                     print(f"START Frodo-{parameter} {operation}: {len(batch)} requests", flush=True)
                     for index, request in enumerate(batch):
                         record = {k: v for k, v in request.items()
                                   if k not in {"command", "expected"}}
                         payload = (request["command"] + "\n").encode("ascii")
-                        record.update(firmware_sha256=firmware_hash,
-                                      command_sha256=hashlib.sha256(payload).hexdigest(),
+                        record.update(command_sha256=hashlib.sha256(payload).hexdigest(),
                                       timestamp=datetime.now(timezone.utc).isoformat())
                         try:
                             log.write("TX " + request["command"] + "\n")
@@ -346,21 +293,10 @@ def main(argv=None):
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--reference-root", type=Path, required=True)
     parser.add_argument("--results", type=Path, required=True)
-    parser.add_argument("--port", default="/dev/ttyUSB2")
-    parser.add_argument("--openocd", type=Path, default=DEFAULT_OPENOCD)
-    parser.add_argument("--firmware-tree", choices=("BOARDSW", "HWDISPLAY"),
-                        default="BOARDSW")
-    parser.add_argument("--prepare-only", action="store_true")
-    parser.add_argument("--compact", action="store_true",
-                        help="verify PKH for KeyGen, SS for Encaps and SS/mask for Decaps; omit PK/CT output")
-    parser.add_argument("--reuse-results", type=Path,
-                        help="reuse only fully verified matching KAT outcomes")
     args = parser.parse_args(argv)
     args.results.mkdir(parents=True, exist_ok=False)
     summary = dict(status="RUNNING", started_at=datetime.now(timezone.utc).isoformat(),
-                   port=args.port, baud_rate=115200, passed=0, suite="official-shake-kat",
-                   firmware_tree=args.firmware_tree,
-                   verification_mode="compact" if args.compact else "full")
+                   suite="official-shake-kat")
     try:
         with tempfile.TemporaryDirectory(prefix="frodo-kat-") as build:
             requests, sources = inventory(args.reference_root, Path(build))
@@ -372,22 +308,13 @@ def main(argv=None):
                     ROOT / "UARTHELPER" / f"FRODO{operation.upper()}", parameter, operation))
         if from_files != requests:
             raise ValueError("stage files do not match official KAT requests")
-        requests = verification_requests(from_files, args.compact)
         prepared = dict(source_sha256=sources, stage_files_sha256=artifacts,
-                        verification_mode=summary["verification_mode"],
                         total=len(requests), batches=dict(Counter(
                             f"{r['parameter']}_{r['operation']}" for r in requests)))
         save_json(args.results / "inventory.json", prepared)
-        reuse = verified_prior_results(args.reuse_results, requests, args.firmware_tree) if args.reuse_results else {}
-        summary.update(total=len(requests), reused=len(reuse))
+        summary.update(status="PREPARED", total=len(requests))
         save_json(args.results / "summary.json", summary)
-        print(f"Prepared {len(requests)} official KAT requests; "
-              f"{len(reuse)} verified prior results", flush=True)
-        if args.prepare_only:
-            summary["status"] = "PREPARED"
-            save_json(args.results / "summary.json", summary)
-        else:
-            execute(args, requests, summary, reuse)
+        print(f"Prepared {len(requests)} official KAT requests", flush=True)
     except KeyboardInterrupt:
         summary.update(status="INTERRUPTED")
         save_json(args.results / "summary.json", summary)

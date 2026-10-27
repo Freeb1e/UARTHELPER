@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Generate reference vectors and verify all FrodoKEM-SHAKE UART stages."""
+"""Generate FrodoKEM-SHAKE reference vectors and parse legacy UART responses."""
 
 from __future__ import annotations
 
@@ -9,7 +9,6 @@ import hashlib
 import importlib
 import json
 from pathlib import Path
-import subprocess
 import sys
 import time
 
@@ -27,8 +26,6 @@ SIZES = {
                encaps_randomness=96),
 }
 OPERATIONS = ("keygen", "encaps", "decaps")
-DEFAULT_OPENOCD = Path("/home/tomoyo/NucleiStudio_IDE_202510-lin64/"
-                       "NucleiStudio_IDE_202510/NucleiStudio/toolchain/openocd/bin/openocd")
 
 
 def save_json(path, value):
@@ -184,118 +181,19 @@ def compare_response(fields, expected):
     return cycles
 
 
-def firmware_path(operation, parameter, firmware_tree="BOARDSW"):
-    name = f"frodo_{operation}"
-    target = name if firmware_tree == "HWDISPLAY" else \
-        name + (f"_{parameter}" if operation == "decaps" else "")
-    return ROOT / "e203_hbirdv2/scripts" / firmware_tree / name / f"{target}.elf"
-
-
-def upload(args, operation, parameter, transcript):
-    firmware = firmware_path(operation, parameter, args.firmware_tree)
-    if not firmware.is_file():
-        raise ValueError(f"firmware not found: {firmware}")
-    config = ROOT / "e203_hbirdv2/scripts/BOARDSW/scloud_encaps/openocd_ilm.cfg"
-    command = [str(args.openocd), "-f", str(config),
-               "-c", "reset halt", "-c", f"load_image {firmware}",
-               "-c", f"verify_image {firmware}",
-               "-c", "resume 0x80000000", "-c", "shutdown"]
-    result = subprocess.run(command, capture_output=True, text=True, timeout=60)
-    transcript.write(result.stdout + result.stderr)
-    transcript.flush()
-    if result.returncode != 0 or "verified" not in result.stdout + result.stderr:
-        raise ValueError(f"OpenOCD load/verify failed: {result.stdout}{result.stderr}")
-    return hashlib.sha256(firmware.read_bytes()).hexdigest()
-
-
-def test_board(args):
-    import serial
-
-    # Validate every input before resetting the CPU or sending UART commands.
-    batches = []
-    for parameter in args.parameters:
-        manifest = json.loads((args.vectors / f"frodo_{parameter}.json").read_text())
-        if manifest["parameter"] != parameter:
-            raise ValueError("manifest parameter does not match filename")
-        for operation in args.operations:
-            batches.append((parameter, operation, build_requests(manifest, operation)))
-    args.results.mkdir(parents=True, exist_ok=False)
-    report = dict(started_at=datetime.now(timezone.utc).isoformat(), port=args.port,
-                  baud_rate=args.baud_rate, firmware_tree=args.firmware_tree,
-                  vectors=str(args.vectors.resolve()), results=[])
-    report_path = args.results / "results.json"
-    save_json(report_path, report)
-    with serial.Serial(args.port, args.baud_rate, timeout=0.1,
-                       write_timeout=args.timeout, exclusive=True) as port:
-        for parameter, operation, requests in batches:
-            print(f"Frodo-{parameter} {operation}: loading firmware", flush=True)
-            with (args.results / f"{operation}_{parameter}.txt").open("w", encoding="ascii") as log:
-                firmware_hash = upload(args, operation, parameter, log)
-                time.sleep(1)
-                startup = port.read(port.in_waiting).decode("ascii")
-                log.write(startup)
-                version = 2 if operation == "keygen" else 1
-                if f"READY FRODO_{operation.upper()} {version}" not in startup:
-                    raise ValueError(f"missing firmware READY banner: {startup!r}")
-                for request in requests:
-                    record = dict(parameter=parameter, operation=operation,
-                                  case=request["case"], kind=request["kind"],
-                                  firmware_sha256=firmware_hash)
-                    report["results"].append(record)
-                    try:
-                        payload = (request["command"] + "\n").encode("ascii")
-                        log.write("TX " + request["command"] + "\n")
-                        log.flush()
-                        written = port.write(payload)
-                        if written != len(payload):
-                            raise ValueError(f"short write: {written}/{len(payload)}")
-                        port.flush()
-                        fields = receive(port, parameter, args.timeout, log)
-                        record["response"] = fields
-                        record["cycles"] = compare_response(fields, request["expected"])
-                        record["status"] = "PASS"
-                        print(f"  case {request['case']} {request['kind']}: PASS "
-                              f"cycles={record['cycles']['CYCLES_ALGORITHM_TOTAL']}", flush=True)
-                    except Exception as error:
-                        record.update(status="FAIL", error=str(error))
-                        raise
-                    finally:
-                        save_json(report_path, report)
-    report["completed_at"] = datetime.now(timezone.utc).isoformat()
-    save_json(report_path, report)
-    print(f"PASS: {len(report['results'])} board requests; report {report_path}")
-
-
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
-    subparsers = parser.add_subparsers(dest="action", required=True)
-    gen = subparsers.add_parser("generate")
-    gen.add_argument("--reference-root", type=Path, required=True)
-    gen.add_argument("--seed", default="000102030405060708090A0B0C0D0E0F"
-                     "101112131415161718191A1B1C1D1E1F")
-    gen.add_argument("--count", type=int, default=3)
-    run = subparsers.add_parser("test")
-    run.add_argument("--port", required=True)
-    run.add_argument("--baud-rate", type=int, default=115200)
-    run.add_argument("--timeout", type=float, default=120)
-    run.add_argument("--openocd", type=Path, default=DEFAULT_OPENOCD)
-    run.add_argument("--firmware-tree", choices=("BOARDSW", "HWDISPLAY"),
-                     default="BOARDSW")
-    run.add_argument("--results", type=Path, required=True)
-    run.add_argument("--operations", nargs="+", choices=OPERATIONS, default=OPERATIONS)
-    for command in (gen, run):
-        command.add_argument("--vectors", type=Path, required=True)
-        command.add_argument("--parameters", nargs="+", type=int,
-                             choices=PARAMETERS, default=PARAMETERS)
+    parser.add_argument("--reference-root", type=Path, required=True)
+    parser.add_argument("--seed", default="000102030405060708090A0B0C0D0E0F"
+                        "101112131415161718191A1B1C1D1E1F")
+    parser.add_argument("--count", type=int, default=3)
+    parser.add_argument("--vectors", type=Path, required=True)
+    parser.add_argument("--parameters", nargs="+", type=int,
+                        choices=PARAMETERS, default=PARAMETERS)
     args = parser.parse_args()
     try:
-        if args.action == "generate":
-            generate(args)
-        else:
-            if args.timeout <= 0 or args.baud_rate <= 0:
-                raise ValueError("timeout and baud rate must be positive")
-            test_board(args)
-    except (OSError, ValueError, TimeoutError, subprocess.SubprocessError) as error:
+        generate(args)
+    except (OSError, ValueError) as error:
         print(f"FAIL: {error}", file=sys.stderr)
         return 1
     return 0
