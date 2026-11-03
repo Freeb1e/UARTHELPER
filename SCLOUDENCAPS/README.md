@@ -1,10 +1,11 @@
 # Scloud+ Encaps board KATs
 
-The former UART firmware has been removed. UART execution requires a separately
-supplied compatible device. Current
-[PACE firmware](../../e203_hbirdv2/scripts/PQC-PACE-Scloud/README.md) uses DTCM
-simulation inputs for 128/192/256 and does not implement these UART commands.
-Parameter-512 vectors remain reference data, not current PACE support.
+Load the matching parameter's Encaps
+[HWDISPLAY UART image](../../e203_hbirdv2/scripts/HWDISPLAY/README.md) before
+running this host tool. [SIMDISPLAY](../../e203_hbirdv2/scripts/SIMDISPLAY/README.md)
+accepts the same commands in simulation. Both use the current
+[PACE core](../../e203_hbirdv2/scripts/PQC-PACE-Scloud/README.md) for 128/192/256.
+Parameter-512 vectors require a separately supplied compatible device.
 
 The runner reads the merged repository's canonical 128/192/256/512-SM3 packed10
 KATs, invokes the official `api_pkc/drng.c` on the host, and sends PK and message
@@ -38,17 +39,18 @@ expected `CT=` and `SS=` values in exactly the same line order. See the
 [manual acceptance guide](../MANUAL_VECTOR_ACCEPTANCE_CN.md) for extracting
 one command/reference tuple and checking all generated files.
 
-For a separately supplied UART device supporting parameter 512:
+After uploading the Scloud+128 Encaps HWDISPLAY image:
 
 ```sh
 python3 -u UARTHELPER/SCLOUDENCAPS/run_encaps_tests.py \
     --port /dev/ttyUSB2 \
-    --vectors third_party/Scloud+/Test_Vectors/KAT_KEM_Scloudplus-512-SM3-packed10.txt
+    --vectors third_party/Scloud+/Test_Vectors/KAT_KEM_Scloudplus-128-SM3-packed10.txt
 ```
 
 Use the connected board's actual serial path. The link is 115200 8N1; response
 timeout defaults to 120 seconds. Milliseconds are converted from measured
-cycles using CPU_HZ returned by the firmware (its startup timer-based estimate).
+cycles using `CPU_HZ` returned by the firmware: its configured build frequency,
+20 MHz by default. Set the firmware's `CPU_HZ` build option to the board's clock.
 Host DRNG and UART transfer are excluded from algorithm timing.
 
 ```sh

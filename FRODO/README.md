@@ -1,10 +1,12 @@
-# FrodoKEM-SHAKE KAT Vectors And Legacy UART Tools
+# FrodoKEM-SHAKE KAT Vectors And UART Tools
 
-The former UART firmware and its automatic image-loading runners have been
-removed. The retained files provide reference-vector preparation and host UART
-protocol tools. UART commands require a separately supplied compatible device.
-The current [PQC-PACE-Frodo firmware](../../e203_hbirdv2/scripts/PQC-PACE-Frodo/README.md)
-uses DTCM simulation inputs and does not implement this UART protocol.
+These host tools prepare reference vectors and test the
+[HWDISPLAY UART firmware](../../e203_hbirdv2/scripts/HWDISPLAY/README.md).
+[SIMDISPLAY](../../e203_hbirdv2/scripts/SIMDISPLAY/README.md) runs the same
+commands and response format in the E203 SoC simulation. Both call the current
+[PQC-PACE-Frodo core](../../e203_hbirdv2/scripts/PQC-PACE-Frodo/README.md).
+Upload the image matching the operation and parameter before running a UART
+stage client; the clients do not load firmware automatically.
 
 ## Official KAT Preparation
 
@@ -44,7 +46,7 @@ P is 640, 976 or 1344. Both command flags are 1, requesting cycle counters
 and full output. All supplied official KAT ciphertexts are valid, so their
 Decaps failure-mask references are 0.
 
-## Legacy UART Stage Clients
+## UART Stage Clients
 
 The stage entry points accept `--parameter`, `--port`, `--results` and optional
 `--line`. They send commands to an already running compatible UART device;
@@ -63,7 +65,7 @@ The default remains full verification.
 | Encaps | Complete CT and SS | SS | CT |
 | Decaps | Complete SS and FAIL_MASK | Complete SS and FAIL_MASK | None |
 
-For a compatible legacy device, a 100-case KeyGen batch can be sent with:
+After loading the Frodo-640 KeyGen HWDISPLAY image, send a 100-case batch with:
 
 ```sh
 python3 -u UARTHELPER/FRODOKEYGEN/run_keygen_tests.py \
@@ -95,7 +97,7 @@ Generation requires a new output directory. The default master seed is the
 32-byte sequence 00 through 1F; override it with `--seed HEX`. Each parameter
 JSON contains random inputs, PK, SK, PKH, CT, SS and a tampered case. Provenance
 records source hashes and the master seed. Generated command files describe
-the same legacy UART protocol.
+the same UART protocol.
 
 Each negative case flips bit 7 of a byte in packed C (byte 9660 for 640,
 15744 for 976, or 21568 for 1344). Generation checks the modified ciphertext

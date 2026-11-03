@@ -1,9 +1,10 @@
-# Frodo keygen legacy UART vectors
+# Frodo keygen UART vectors
 
-The former UART firmware has been removed. This host tool requires a separately
-supplied compatible UART device. Current
-[PACE firmware](../../e203_hbirdv2/scripts/PQC-PACE-Frodo/README.md) uses DTCM
-simulation inputs and does not implement these UART commands.
+Load the matching parameter's KeyGen
+[HWDISPLAY UART image](../../e203_hbirdv2/scripts/HWDISPLAY/README.md) before
+running this host tool. [SIMDISPLAY](../../e203_hbirdv2/scripts/SIMDISPLAY/README.md)
+accepts the same commands in simulation. Both use the current
+[PACE core](../../e203_hbirdv2/scripts/PQC-PACE-Frodo/README.md).
 
 This directory contains only official KAT keygen inputs and references for
 FrodoKEM-SHAKE-640/976/1344. Files use ASCII, LF line endings, uppercase hex

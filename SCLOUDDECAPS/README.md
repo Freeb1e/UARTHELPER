@@ -1,10 +1,11 @@
 # Scloud+ Decaps UART tests
 
-The former UART firmware has been removed. UART execution requires a separately
-supplied compatible device. Current
-[PACE firmware](../../e203_hbirdv2/scripts/PQC-PACE-Scloud/README.md) uses DTCM
-simulation inputs for 128/192/256 and does not implement these UART commands.
-Parameter-512 vectors remain reference data, not current PACE support.
+Load the matching parameter's Decaps
+[HWDISPLAY UART image](../../e203_hbirdv2/scripts/HWDISPLAY/README.md) before
+running this host tool. [SIMDISPLAY](../../e203_hbirdv2/scripts/SIMDISPLAY/README.md)
+accepts the same commands in simulation. Both use the current
+[PACE core](../../e203_hbirdv2/scripts/PQC-PACE-Scloud/README.md) for 128/192/256.
+Parameter-512 vectors require a separately supplied compatible device.
 
 The runner sends official KAT SK and CT directly to the board. Decapsulation
 requires no DRNG. Each parameter run checks all 10 canonical valid records,
@@ -37,18 +38,19 @@ expected `SS=` and decimal `FAIL_MASK=` values in the same line order. See the
 [manual acceptance guide](../MANUAL_VECTOR_ACCEPTANCE_CN.md) for single-case
 use and regeneration.
 
-For a separately supplied UART device supporting parameter 512:
+After uploading the Scloud+128 Decaps HWDISPLAY image:
 
 ```sh
 python3 -m pip install -r UARTHELPER/SCLOUDKEYGEN/requirements.txt
 python3 -u UARTHELPER/SCLOUDDECAPS/run_decaps_tests.py \
     --port /dev/ttyUSB2 \
-    --vectors third_party/Scloud+/Test_Vectors/KAT_KEM_Scloudplus-512-SM3-packed10.txt
+    --vectors third_party/Scloud+/Test_Vectors/KAT_KEM_Scloudplus-128-SM3-packed10.txt
 ```
 
 Use the actual connected serial device. The link is 115200 8N1; timeout is
 120 seconds by default. All stage cycles are displayed with milliseconds
-converted using the board's startup-measured CPU_HZ. The run stops at the first
+converted using the firmware's configured `CPU_HZ`, 20 MHz by default. Set the
+firmware's `CPU_HZ` build option to the board's clock. The run stops at the first
 SS/mask mismatch, malformed response, hardware error or timeout.
 
 ```sh

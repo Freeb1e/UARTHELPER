@@ -1,10 +1,11 @@
 # Scloud+ KeyGen UART tests
 
-The former UART firmware has been removed. This host tool requires a separately
-supplied compatible UART device. Current
-[PACE firmware](../../e203_hbirdv2/scripts/PQC-PACE-Scloud/README.md) uses DTCM
-simulation inputs for 128/192/256 and does not implement these UART commands.
-Parameter-512 vectors remain reference data, not current PACE support.
+Load the matching parameter's KeyGen
+[HWDISPLAY UART image](../../e203_hbirdv2/scripts/HWDISPLAY/README.md) before
+running this host tool. [SIMDISPLAY](../../e203_hbirdv2/scripts/SIMDISPLAY/README.md)
+accepts the same commands in simulation. Both use the current
+[PACE core](../../e203_hbirdv2/scripts/PQC-PACE-Scloud/README.md) for 128/192/256.
+Parameter-512 vectors require a separately supplied compatible device.
 
 `run_keygen_tests.py` reads canonical Scloud+ KAT records directly from
 `third_party/Scloud+/Test_Vectors`. For each record it derives `z` and `alpha`
@@ -14,14 +15,14 @@ complete `PK` and `SK` values with that same record. A malformed response,
 board error, timeout, or first mismatch stops the run immediately.
 
 The tool reads the parameter from the KAT filename and constructs the matching
-legacy UART request for 128/192/256/512-SM3.
+UART request for 128/192/256/512-SM3.
 
 The host requires `cc` (a C compiler). Each run builds a temporary helper using
 the merged repository's official `Implementations/_shared/api_pkc/drng.c`.
 It initializes DRNG separately for each seed, then draws `z` and `alpha` in
 two calls. Each draw is 64 bytes for parameters 128/192/256 and 128 bytes for
 parameter 512. No DRNG implementation is duplicated in Python.
-The client uses the legacy version-3 protocol with explicit `z || alpha` inputs.
+The client uses the version-3 protocol with explicit `z || alpha` inputs.
 
 From the merged repository root, install the serial dependency and run the default
 128-SM3 vectors with:
@@ -62,18 +63,16 @@ The link is 115200 8N1. `--timeout` defaults to 120 seconds per vector because
 the response includes full keys.
 
 Every response displays all reported `CYCLES_*` stages before the PK/SK
-comparison result. DRNG runs only on the host. The debug board
-image reports `COMPACT_B` (physical-to-protocol column compaction) separately
-from `PACK_PK` (Pack10 and seedA append); add these two stages when comparing
-with the older combined `PACK_PK` measurement. For parameter 128, compaction
-is a no-op, so its count only reflects the call/check overhead.
+comparison result. DRNG runs only on the host. The current PACE image reports
+`EXPAND_F`, `HARDWARE_CHAIN`, `PACK_AND_SECRET`, `HASH_PK`, `CLEANUP` and
+`ALGORITHM_TOTAL`, matching its actual API timing boundaries.
 
 To also display milliseconds, supply the actual CPU clock with `--cpu-mhz`.
-For example, for a board running at 100 MHz, from the repository root:
+For example, for a board running at the default 20 MHz, from the repository root:
 
 ```sh
 python3 UARTHELPER/SCLOUDKEYGEN/run_keygen_tests.py \
-    --port /dev/ttyUSB0 --cpu-mhz 100 \
+    --port /dev/ttyUSB0 --cpu-mhz 20 \
     --vectors third_party/Scloud+/Test_Vectors/KAT_KEM_Scloudplus-256-SM3-packed10.txt
 ```
 
@@ -108,10 +107,13 @@ output for line N of the command file. See the shared
 [manual acceptance guide](../MANUAL_VECTOR_ACCEPTANCE_CN.md) for single-line
 extraction and regeneration.
 
-For a compatible UART device supporting all three lower sets, run sequentially:
+Upload the matching image before each parameter's run. From the repository root,
+with the board's OpenOCD connection configured:
 
 ```sh
 for parameter in 128 192 256; do
+    make -C e203_hbirdv2/scripts/HWDISPLAY upload \
+        ALGORITHM=scloud PARAMETER="$parameter" OPERATION=keygen || break
     python3 UARTHELPER/SCLOUDKEYGEN/run_keygen_tests.py \
         --port /dev/ttyUSB2 \
         --vectors "third_party/Scloud+/Test_Vectors/KAT_KEM_Scloudplus-${parameter}-SM3-packed10.txt" \
