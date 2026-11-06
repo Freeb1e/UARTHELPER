@@ -7,6 +7,12 @@ accepts the same commands in simulation. Both use the current
 [PACE core](../../e203_hbirdv2/scripts/PQC-PACE-Scloud/README.md) for 128/192/256.
 Parameter-512 vectors require a separately supplied compatible device.
 
+Current RTL validation and its scope are recorded in the
+[E203 logic/software acceptance](../../Delivery/E203逻辑软件完整验收.md).
+The [earlier 1,032-request board run](../../evidence/uarthelper_fs_full_20261105_162832/README.md)
+predates the current RTL optimizations; its results do not establish board
+acceptance of the current RTL.
+
 The runner reads the merged repository's canonical 128/192/256/512-SM3 packed10
 KATs, invokes the official `api_pkc/drng.c` on the host, and sends PK and message
 m to the board. DRNG state follows the official KAT sequence: initialize Seed,

@@ -6,6 +6,12 @@ running this host tool. [SIMDISPLAY](../../e203_hbirdv2/scripts/SIMDISPLAY/READM
 accepts the same commands in simulation. Both use the current
 [PACE core](../../e203_hbirdv2/scripts/PQC-PACE-Frodo/README.md).
 
+Current RTL validation and its scope are recorded in the
+[E203 logic/software acceptance](../../Delivery/E203逻辑软件完整验收.md).
+The [earlier 1,032-request board run](../../evidence/uarthelper_fs_full_20261105_162832/README.md)
+predates the current RTL optimizations; its results do not establish board
+acceptance of the current RTL.
+
 This directory contains only official KAT decaps inputs and references for
 FrodoKEM-SHAKE-640/976/1344. Files use ASCII, LF line endings, uppercase hex
 and no headers. Line N in every reference file corresponds exactly to line N

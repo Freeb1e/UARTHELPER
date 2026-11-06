@@ -7,6 +7,12 @@ accepts the same commands in simulation. Both use the current
 [PACE core](../../e203_hbirdv2/scripts/PQC-PACE-Scloud/README.md) for 128/192/256.
 Parameter-512 vectors require a separately supplied compatible device.
 
+Current RTL validation and its scope are recorded in the
+[E203 logic/software acceptance](../../Delivery/E203逻辑软件完整验收.md).
+The [earlier 1,032-request board run](../../evidence/uarthelper_fs_full_20261105_162832/README.md)
+predates the current RTL optimizations; its results do not establish board
+acceptance of the current RTL.
+
 `run_keygen_tests.py` reads canonical Scloud+ KAT records directly from
 `third_party/Scloud+/Test_Vectors`. For each record it derives `z` and `alpha`
 from `Seed` on the host and sends `KEYGEN <parameter> <z||alpha_hex>`, waits
@@ -94,7 +100,8 @@ a serial terminal. Add `--port /dev/ttyUSB0` to the same command to
 both export and run automatic full PK/SK comparisons. Command files are KAT test
 data; `z` and `alpha` are deterministic random inputs, not TRNG output.
 
-Prepared command files for all supported SM3 parameter sets (10 records each):
+Prepared command files for all four KAT parameter sets (10 records each; current
+HWDISPLAY/SIMDISPLAY firmware supports 128/192/256):
 
 - [128](keygen_commands_128.txt)
 - [192](keygen_commands_192.txt)
